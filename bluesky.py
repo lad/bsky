@@ -203,6 +203,7 @@ class BlueSky:
             if showall or not notif.is_read:
                 print(f"From: {notif.author.handle}")
                 print(f"Reason: {notif.reason}")
+                print(f"Date: {self._humanise_date_string(notif.indexed_at)}")
                 if notif.reason == 'reply':
                     print(f"Text: {notif.record.text}")
                     did, rkey = self._at_uri_to_did_rkey(
@@ -219,8 +220,9 @@ class BlueSky:
                         post = self._client.get_post(rkey, profile_identify=did)
                         print(f"Post: {post.value.text}")
                     except atproto_core.exceptions.AtProtocolError as ex:
-                        print(ex.response.status_code)
-                        print(ex.response.content.message)
+                        print('Exception while retrieving liked post')
+                        print(f"Status: {ex.response.status_code}")
+                        print(f"Message: {ex.response.content.message}")
                 print('--')
                 if not notif.is_read:
                     unread_count += 1

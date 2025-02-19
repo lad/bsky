@@ -178,8 +178,9 @@ class BlueSkyCommandLine:
     @staticmethod
     def add_parser_notifications(parent):
         """Add a sub-parser for the 'notifications' command"""
-        parser = parent.add_parser('notifications', help="show notifications for "
-                                                         "the authenticated user")
+        parser = parent.add_parser('notifications', aliases=['not'],
+                                   help="show notifications for "
+                                        "the authenticated user")
         parser.add_argument('--since', '-s', action='store',
                             help='Date limit for posts '
                                  '(e.g. today/yesterday/3 days ago')
