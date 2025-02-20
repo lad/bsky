@@ -130,8 +130,7 @@ class BlueSkyCommandLine:
         """Add a sub-parser for the 'posts' command"""
         parser = parent.add_parser('posts', help='show BlueSky posts')
         parser.add_argument('--since', '-s', action='store',
-                            help='Date limit for posts '
-                                 '(e.g. today/yesterday/3 days ago')
+                            help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--count', '-c', type=int, action='store',
                             help='Count of posts to display')
         parser.add_argument('handle', nargs='?', help="user's handle")
@@ -182,8 +181,7 @@ class BlueSkyCommandLine:
                                    help="show notifications for "
                                         "the authenticated user")
         parser.add_argument('--since', '-s', action='store',
-                            help='Date limit for posts '
-                                 '(e.g. today/yesterday/3 days ago')
+                            help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--all', '-a', action='store_true',
                             help='Show both read and unread notifications')
         parser.add_argument('--mark', '-m', action='store_true',
@@ -196,12 +194,23 @@ class BlueSkyCommandLine:
         """Add a sub-parser for the 'likes' command"""
         parser = parent.add_parser('likes', help="show likes for authenticated user")
         parser.add_argument('--since', '-s', action='store',
-                            help='Date limit for likes '
-                                 '(e.g. today/yesterday/3 days ago')
+                            help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--date', '-d', action='store_true',
                             help='Show date of each like (more costly)')
         parser.set_defaults(func='likes',
                             func_args=lambda ns: [ns.since, ns.date])
+
+    @staticmethod
+    def add_parser_search(parent):
+        """Add a sub-parser for the 'search' command"""
+        parser = parent.add_parser('search', help="show posts for a given search "
+                                                  "string (Lucene search strings "
+                                                  "supported)")
+        parser.add_argument('term', nargs='?', help="term to search for")
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.set_defaults(func='search',
+                            func_args=lambda ns: [ns.term, ns.since])
 
 
 def main():

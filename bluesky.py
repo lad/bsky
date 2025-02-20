@@ -72,7 +72,7 @@ class BlueSky:
                 print('-----')
 
             if rsp.cursor:
-                cursor=rsp.cursor
+                cursor = rsp.cursor
             else:
                 break
 
@@ -235,6 +235,37 @@ class BlueSky:
             seen_at = self._client.get_current_time_iso()
             self._client.app.bsky.notification.update_seen({'seen_at': seen_at})
 
+    def search(self, term, date_limit_str):
+        params = { 'q': f"{term}",
+                   'limit': 10 }
+
+        if date_limit_str:
+            date_limit = informal_date.parse(date_limit_str).replace(
+                                                        tzinfo=LOCAL_TIMEZONE)
+            params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
+        cursor = None
+
+        while True:
+            params['cursor'] = cursor
+            try:
+                rsp = self._client.app.bsky.feed.search_posts(params=params)
+                for post in rsp.posts:
+                    self._print_post_entry(post)
+
+                if rsp.cursor:
+                    cursor = rsp.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                print(type(ex))
+                if 'response' in dir(ex):
+                    if 'status_code' in dir(ex.response):
+                        print(ex.response.status_code)
+                    if 'content' in dir(ex.response):
+                        if 'message' in dir(ex.response.content):
+                            print(ex.response.content.message)
+
+
     def profile_did(self, handle):
         '''Output the DID for a given user handle'''
         user_profile = self._client.get_profile(handle)
@@ -333,13 +364,14 @@ class BlueSky:
 
     @staticmethod
     def _print_post_entry(post):
-        txt = post.record.text
-        print(txt)
-        print(BlueSky._humanise_date_string(post.record.created_at))
-        print(BlueSky._at_uri_to_http_url(post.uri))
-        print(post.uri)
-        print(post.like_count)
-        print()
+        print(f"Author: {post.author.handle} ({post.author.display_name})")
+        print(f"Author Link: https://bsky.app/profile/{post.author.handle}")
+        print(f"Date: {BlueSky._humanise_date_string(post.record.created_at)}")
+        print(f"URI: {post.uri}")
+        print(f"Link: {BlueSky._at_uri_to_http_url(post.uri)}")
+        print(f"Likes: {post.like_count}")
+        print(f"Text: {post.record.text}")
+        print('-----')
 
     @staticmethod
     def _get_image_data(filename):
