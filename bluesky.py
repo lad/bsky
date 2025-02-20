@@ -1,6 +1,5 @@
 '''BlueSky class to interact with the Blue Sky API via atproto'''
 
-import os
 from datetime import datetime
 import tzlocal
 
@@ -12,34 +11,36 @@ from wand.image import Image
 import informal_date
 
 
-
 class BlueSky:
+    '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
     DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
     LOCAL_TIMEZONE = tzlocal.get_localzone()
     FAILURE_LIMIT = 10
 
-    '''Command line client for Blue Sky'''
     def __init__(self, handle, password):
         self._handle = handle
         self._password = password
         self._client = atproto.Client()
         self._login()
 
+    @staticmethod
+    def _parse_date_limit_str(date_limit_str):
+        if date_limit_str:
+            return informal_date.parse(date_limit_str).replace(
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
+        else:
+            return None
+
+
     def likes(self, date_limit_str, show_date):
         '''Output the posts that the given user handle has liked'''
         params = {
                 "actor": self._handle,
-                #"limit": 100,  # Optional: specify the number of likes to retrieve
+                "limit": 100,
                 }
         cursor = None
-
-        if date_limit_str:
-            date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
-        else:
-            date_limit = None
-
+        date_limit = self._parse_date_limit_str(date_limit_str)
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -64,15 +65,16 @@ class BlueSky:
                             return
 
                     handle = like.post.author.handle
-                    author_profile = self._client.get_profile(handle)
-                    followers = author_profile.followers_count
+                    #author_profile = self._client.get_profile(handle)
+                    #followers = author_profile.followers_count
+                    #f"{like.post.author.display_name} ({followers} followers)\n"
                     print(f"Author: {handle} "
-                        f"{like.post.author.display_name} ({followers} followers)\n"
-                        f"Author Link: https://bsky.app/profile/{handle}\n"
-                        f"Post Link: {self._at_uri_to_http_url(like.post.uri)}\n"
-                        f"Text: {like.post.record.text}")
+                          f"({like.post.author.display_name})\n"
+                          f"Author Link: https://bsky.app/profile/{handle}\n"
+                          f"Post Link: {self._at_uri_to_http_url(like.post.uri)}")
                     if like_date:
                         print(f"Like Date: {like_date}")
+                    print(f"Text: {like.post.record.text}")
                     print('-----')
 
                 if rsp.cursor:
@@ -82,6 +84,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
+        else:
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @staticmethod
     def _print_at_protocol_error(ex):
@@ -129,11 +133,7 @@ class BlueSky:
 
     def posts(self, handle=None, date_limit_str=None, count=None):
         '''Output all posts for the given user handle'''
-        if date_limit_str:
-            date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
-        else:
-            date_limit = None
+        date_limit = self._parse_date_limit_str(date_limit_str)
 
         for post in self._get_posts(handle, date_limit=date_limit, count_limit=count):
             self._print_post_entry(post)
@@ -202,11 +202,7 @@ class BlueSky:
 
     def notifications(self, date_limit_str=None, showall=False, mark_read=False):
         '''output the unacknowledged notifications for the authenticated handle'''
-        if date_limit_str:
-            date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
-        else:
-            date_limit = None
+        date_limit = self._parse_date_limit_str(date_limit_str)
 
         rsp = self._client.app.bsky.notification.list_notifications()
         notification_count, unread_count = 0, 0
@@ -255,15 +251,20 @@ class BlueSky:
     def search(self, term, date_limit_str, is_follow, is_follower):
         '''Search for the given terms'''
         params = { 'q': f"{term}",
-                   'limit': 10 }
-        if date_limit_str:
-            date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
-            params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
+                   'limit': 100 }
         cursor = None
+        date_limit = self._parse_date_limit_str(date_limit_str)
+        if date_limit:
+            params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-        follows = [entry.handle for entry in self._get_follows(self._handle)]
-        followers = [entry.handle for entry in self._get_followers(self._handle)]
+        if is_follow is None:
+            follows = []
+        else:
+            follows = [entry.handle for entry in self._get_follows(self._handle)]
+        if is_follower is None:
+            followers = []
+        else:
+            followers = [entry.handle for entry in self._get_followers(self._handle)]
 
         num_failures = 0
 
@@ -291,6 +292,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
+        else:
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def profile_did(self, handle):
         '''Output the DID for a given user handle'''
@@ -342,6 +345,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
+        else:
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def _get_followers(self, handle):
         '''A generator to return an entry for each user that follows the given user
@@ -360,6 +365,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
+        else:
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @staticmethod
     def _print_user_entry(entry, full=False):
@@ -405,6 +412,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
+        else:
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @staticmethod
     def _print_post_entry(post, follows=None, followers=None):
