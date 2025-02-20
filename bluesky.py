@@ -11,13 +11,14 @@ from wand.image import Image
 
 import informal_date
 
-CONFIG_PATH_DEFAULT = os.path.join(os.getcwd(), '.config')
-BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
-DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
-LOCAL_TIMEZONE = tzlocal.get_localzone()
 
 
 class BlueSky:
+    BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
+    DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
+    LOCAL_TIMEZONE = tzlocal.get_localzone()
+    FAILURE_LIMIT = 10
+
     '''Command line client for Blue Sky'''
     def __init__(self, handle, password):
         self._handle = handle
@@ -35,46 +36,62 @@ class BlueSky:
 
         if date_limit_str:
             date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=LOCAL_TIMEZONE)
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
         else:
             date_limit = None
 
-        while True:
+        num_failures = 0
+
+        while num_failures < self.FAILURE_LIMIT:
             params['cursor'] = cursor
-            rsp = self._client.app.bsky.feed.get_actor_likes(params=params)
-            if not rsp.feed:
-                break
+            try:
+                rsp = self._client.app.bsky.feed.get_actor_likes(params=params)
+                if not rsp.feed:
+                    break
 
-            for like in rsp.feed:
-                did, rkey = self._at_uri_to_did_rkey(like.post.viewer.like)
-                if date_limit or show_date:
-                    like_rsp = self._client.app.bsky.feed.like.get(did, rkey)
-                    created_at = like_rsp.value.created_at
-                    like_date = BlueSky._humanise_date_string(created_at)
+                for like in rsp.feed:
+                    did, rkey = self._at_uri_to_did_rkey(like.post.viewer.like)
+                    if date_limit or show_date:
+                        like_rsp = self._client.app.bsky.feed.like.get(did, rkey)
+                        created_at = like_rsp.value.created_at
+                        like_date = BlueSky._humanise_date_string(created_at)
+                    else:
+                        like_date = None
+
+                    if date_limit:
+                        dt = datetime.strptime(created_at, BlueSky.DATE_FORMAT)
+                        if dt < date_limit:
+                            return
+
+                    handle = like.post.author.handle
+                    author_profile = self._client.get_profile(handle)
+                    followers = author_profile.followers_count
+                    print(f"Author: {handle} "
+                        f"{like.post.author.display_name} ({followers} followers)\n"
+                        f"Author Link: https://bsky.app/profile/{handle}\n"
+                        f"Post Link: {self._at_uri_to_http_url(like.post.uri)}\n"
+                        f"Text: {like.post.record.text}")
+                    if like_date:
+                        print(f"Like Date: {like_date}")
+                    print('-----')
+
+                if rsp.cursor:
+                    cursor = rsp.cursor
                 else:
-                    like_date = None
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
-                if date_limit:
-                    dt = datetime.strptime(created_at, DATE_FORMAT)
-                    if dt < date_limit:
-                        return
-
-                handle = like.post.author.handle
-                author_profile = self._client.get_profile(handle)
-                followers = author_profile.followers_count
-                print(f"Author: {handle} "
-                      f"{like.post.author.display_name} ({followers} followers)\n"
-                      f"Author Link: https://bsky.app/profile/{handle}\n"
-                      f"Post Link: {self._at_uri_to_http_url(like.post.uri)}\n"
-                      f"Text: {like.post.record.text}")
-                if like_date:
-                    print(f"Like Date: {like_date}")
-                print('-----')
-
-            if rsp.cursor:
-                cursor = rsp.cursor
-            else:
-                break
+    @staticmethod
+    def _print_at_protocol_error(ex):
+        print(type(ex))
+        if 'response' in dir(ex):
+            if 'status_code' in dir(ex.response):
+                print(ex.response.status_code)
+            if 'content' in dir(ex.response):
+                if 'message' in dir(ex.response.content):
+                    print(ex.response.content.message)
 
     def follows(self, handle, full):
         '''Output a list of users and their DIDs that the given user handle follows'''
@@ -114,7 +131,7 @@ class BlueSky:
         '''Output all posts for the given user handle'''
         if date_limit_str:
             date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=LOCAL_TIMEZONE)
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
         else:
             date_limit = None
 
@@ -187,7 +204,7 @@ class BlueSky:
         '''output the unacknowledged notifications for the authenticated handle'''
         if date_limit_str:
             date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=LOCAL_TIMEZONE)
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
         else:
             date_limit = None
 
@@ -196,7 +213,7 @@ class BlueSky:
 
         for notif in rsp.notifications:
             if date_limit:
-                dt = datetime.strptime(notif.record.created_at, DATE_FORMAT)
+                dt = datetime.strptime(notif.record.created_at, BlueSky.DATE_FORMAT)
                 if dt < date_limit:
                     continue
 
@@ -241,17 +258,16 @@ class BlueSky:
                    'limit': 10 }
         if date_limit_str:
             date_limit = informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=LOCAL_TIMEZONE)
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
             params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
         cursor = None
 
         follows = [entry.handle for entry in self._get_follows(self._handle)]
         followers = [entry.handle for entry in self._get_followers(self._handle)]
 
-        failure_limit = 10
         num_failures = 0
 
-        while num_failures < failure_limit:
+        while num_failures < self.FAILURE_LIMIT:
             params['cursor'] = cursor
             try:
                 rsp = self._client.app.bsky.feed.search_posts(params=params)
@@ -273,15 +289,8 @@ class BlueSky:
                 else:
                     break
             except atproto_core.exceptions.AtProtocolError as ex:
-                nun_failures += 1
-                print(type(ex))
-                if 'response' in dir(ex):
-                    if 'status_code' in dir(ex.response):
-                        print(ex.response.status_code)
-                    if 'content' in dir(ex.response):
-                        if 'message' in dir(ex.response.content):
-                            print(ex.response.content.message)
-
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
     def profile_did(self, handle):
         '''Output the DID for a given user handle'''
@@ -310,7 +319,7 @@ class BlueSky:
     @staticmethod
     def _humanise_date_string(date_string):
         try:
-            return datetime.strptime(date_string, DATE_FORMAT) \
+            return datetime.strptime(date_string, BlueSky.DATE_FORMAT) \
                            .strftime('%B %d, %Y at %I:%M %p UTC')
         except ValueError:
             # Failed to parse string, return it as a simple string
@@ -320,25 +329,37 @@ class BlueSky:
         '''A generator to return an entry for each user that the given user
            handle follows'''
         cursor = None
-        while True:
-            rsp = self._client.get_follows(handle or self._handle, cursor=cursor)
-            yield from rsp.follows
-            if rsp.cursor:
-                cursor = rsp.cursor
-            else:
-                break
+        num_failures = 0
+
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                rsp = self._client.get_follows(handle or self._handle, cursor=cursor)
+                yield from rsp.follows
+                if rsp.cursor:
+                    cursor = rsp.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
     def _get_followers(self, handle):
         '''A generator to return an entry for each user that follows the given user
            handle'''
         cursor = None
-        while True:
-            rsp = self._client.get_followers(handle or self._handle, cursor=cursor)
-            yield from rsp.followers
-            if rsp.cursor:
-                cursor = rsp.cursor
-            else:
-                break
+        num_failures = 0
+
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                rsp = self._client.get_followers(handle or self._handle, cursor=cursor)
+                yield from rsp.followers
+                if rsp.cursor:
+                    cursor = rsp.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
     @staticmethod
     def _print_user_entry(entry, full=False):
@@ -360,24 +381,30 @@ class BlueSky:
         cursor = None
         actor = handle or self._handle
         count = 0
+        num_failures = 0
 
-        while True:
-            feed = self._client.get_author_feed(actor=actor, cursor=cursor)
-            for view in feed.feed:
-                if date_limit:
-                    dt = datetime.strptime(view.post.record.created_at, DATE_FORMAT)
-                    if dt < date_limit:
-                        return
-                if count_limit:
-                    count += 1
-                    if count > count_limit:
-                        return
-                yield view.post
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                feed = self._client.get_author_feed(actor=actor, cursor=cursor)
+                for view in feed.feed:
+                    if date_limit:
+                        dt = datetime.strptime(view.post.record.created_at,
+                                            BlueSky.DATE_FORMAT)
+                        if dt < date_limit:
+                            return
+                    if count_limit:
+                        count += 1
+                        if count > count_limit:
+                            return
+                    yield view.post
 
-            if feed.cursor:
-                cursor = feed.cursor
-            else:
-                break
+                if feed.cursor:
+                    cursor = feed.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
     @staticmethod
     def _print_post_entry(post, follows=None, followers=None):
@@ -401,15 +428,18 @@ class BlueSky:
         '''Read the image at the given filename and downsize it to under the
            max size permissible for blue sky'''
         scaler = 0.75
+        count = 0
 
         print('Reading image')
         with Image(filename=filename) as img:
-            while True:
+            while count < 100:  # need some limit, surely 100 is enough
                 img_data = img.make_blob()
-                if len(img_data) < BLUESKY_MAX_IMAGE_SIZE:
+                if len(img_data) < BlueSky.BLUESKY_MAX_IMAGE_SIZE:
                     break
 
                 print('Resizing', img.size)
                 img.resize(int(img.width * scaler), int(img.height * scaler))
+
+                count += 1
 
         return img_data
