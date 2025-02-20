@@ -248,7 +248,10 @@ class BlueSky:
         follows = [entry.handle for entry in self._get_follows(self._handle)]
         followers = [entry.handle for entry in self._get_followers(self._handle)]
 
-        while True:
+        failure_limit = 10
+        num_failures = 0
+
+        while num_failures < failure_limit:
             params['cursor'] = cursor
             try:
                 rsp = self._client.app.bsky.feed.search_posts(params=params)
@@ -270,6 +273,7 @@ class BlueSky:
                 else:
                     break
             except atproto_core.exceptions.AtProtocolError as ex:
+                nun_failures += 1
                 print(type(ex))
                 if 'response' in dir(ex):
                     if 'status_code' in dir(ex.response):
