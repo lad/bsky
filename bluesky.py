@@ -235,22 +235,35 @@ class BlueSky:
             seen_at = self._client.get_current_time_iso()
             self._client.app.bsky.notification.update_seen({'seen_at': seen_at})
 
-    def search(self, term, date_limit_str):
+    def search(self, term, date_limit_str, is_follow, is_follower):
+        '''Search for the given terms'''
         params = { 'q': f"{term}",
                    'limit': 10 }
-
         if date_limit_str:
             date_limit = informal_date.parse(date_limit_str).replace(
                                                         tzinfo=LOCAL_TIMEZONE)
             params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
         cursor = None
 
+        follows = [entry.handle for entry in self._get_follows(self._handle)]
+        followers = [entry.handle for entry in self._get_followers(self._handle)]
+
         while True:
             params['cursor'] = cursor
             try:
                 rsp = self._client.app.bsky.feed.search_posts(params=params)
                 for post in rsp.posts:
-                    self._print_post_entry(post)
+                    if is_follow is not None:
+                        if is_follow and not post.author.handle in follows:
+                            continue
+                        if not is_follow and post.author.handle in follows:
+                            continue
+                    if is_follower is not None:
+                        if is_follower and not post.author.handle in followers:
+                            continue
+                        if not is_follower and post.author.handle in followers:
+                            continue
+                    self._print_post_entry(post, follows, followers)
 
                 if rsp.cursor:
                     cursor = rsp.cursor
@@ -363,9 +376,15 @@ class BlueSky:
                 break
 
     @staticmethod
-    def _print_post_entry(post):
+    def _print_post_entry(post, follows=None, followers=None):
         print(f"Author: {post.author.handle} ({post.author.display_name})")
         print(f"Author Link: https://bsky.app/profile/{post.author.handle}")
+        if follows:
+            is_follow = post.author.handle in follows
+            print(f"Follows: {is_follow}")
+        if followers:
+            is_follower = post.author.handle in followers
+            print(f"Follower: {is_follower}")
         print(f"Date: {BlueSky._humanise_date_string(post.record.created_at)}")
         print(f"URI: {post.uri}")
         print(f"Link: {BlueSky._at_uri_to_http_url(post.uri)}")

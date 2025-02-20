@@ -209,8 +209,24 @@ class BlueSkyCommandLine:
         parser.add_argument('term', nargs='?', help="term to search for")
         parser.add_argument('--since', '-s', action='store',
                             help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--follows', choices=['true', 'false', None],
+                            help="Show only posts by users that the authenticated "
+                                 "user follows (true) or doesn't follow (false)")
+        parser.add_argument('--follower', choices=['true', 'false', None],
+                            help='Show only posts by users that are followers (true) '
+                                 'or not followers (false) of the authenticated user')
         parser.set_defaults(func='search',
-                            func_args=lambda ns: [ns.term, ns.since])
+                            func_args=lambda ns: [ns.term, ns.since,
+                                                  true_false(ns.follows),
+                                                  true_false(ns.follower)])
+
+def true_false(flag):
+    '''Check true/false argument string'''
+    if flag == 'true':
+        return True
+    if flag == 'false':
+        return False
+    return None
 
 
 def main():

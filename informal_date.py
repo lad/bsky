@@ -209,7 +209,7 @@ def test():
     # Convert informal dates to datetime objects
     for informal_date in informal_dates:
         try:
-            date = parse(informal_date)
+            parse(informal_date)
         except ValueError as e:
             print(e)
 
