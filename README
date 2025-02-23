@@ -1,0 +1,33 @@
+A simple command line client for BlueSky.
+
+Written in python using the atproto sdk
+
+
+usage: bs.py [-h] [--verbose] [--debug] [--config CONFIG]
+             {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,search} ...
+
+options:
+  -h, --help            show this help message and exit
+  --verbose, -v
+  --debug, -d
+  --config, -c CONFIG   config file or $BSCONFIG or $PWD/.config
+
+Sub Commands:
+  {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,search}
+    delete (del)        delete BlueSky post
+    did                 show a user's did
+    followers           show the given user's followers
+    follows             show who a user follows
+    has_unread_notifications (unread)
+                        Show true/false for unread notifications
+    likes               show likes for authenticated user
+    mutuals             show who follows the given user
+    notifications (not, notif)
+                        show notifications for the authenticated user
+    post                post text to BlueSky
+    postimage (pi)      post image to BlueSky
+    posts               show BlueSky posts
+    profile             show user's profile
+    reposters           show repost users
+    search              show posts for a given search string (Lucene search
+                        strings supported)
