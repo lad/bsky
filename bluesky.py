@@ -1,5 +1,7 @@
 '''BlueSky class to interact with the Blue Sky API via atproto'''
 
+# pylint: disable=W0511
+
 from datetime import datetime
 import tzlocal
 
@@ -25,16 +27,18 @@ class BlueSky:
         self._login()
 
     @staticmethod
-    def _parse_date_limit_str(date_limit_str):
-        if date_limit_str:
-            return informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
-        else:
-            return None
+    def humanise_date_string(date_string):
+        '''Convert the given BlueSky date string into something more readable
+           for human consumption'''
+        try:
+            return datetime.strptime(date_string, BlueSky.DATE_FORMAT) \
+                           .strftime('%B %d, %Y at %I:%M %p UTC')
+        except ValueError:
+            # Failed to parse string, return it as a simple string
+            return str(date_string)
 
-
-    def likes(self, date_limit_str, show_date):
-        '''Output the posts that the given user handle has liked'''
+    def get_likes(self, date_limit_str, get_date):
+        '''A generator to yiled posts that the given user handle has liked'''
         params = {
                 "actor": self._handle,
                 "limit": 100,
@@ -51,11 +55,11 @@ class BlueSky:
                     break
 
                 for like in rsp.feed:
-                    did, rkey = self._at_uri_to_did_rkey(like.post.viewer.like)
-                    if date_limit or show_date:
-                        like_rsp = self._client.app.bsky.feed.like.get(did, rkey)
+                    if date_limit or get_date:
+                        like_rsp = self._client.app.bsky.feed.like.get(
+                                      *self.at_uri_to_did_rkey(like.post.viewer.like))
                         created_at = like_rsp.value.created_at
-                        like_date = BlueSky._humanise_date_string(created_at)
+                        like_date = BlueSky.humanise_date_string(created_at)
                     else:
                         like_date = None
 
@@ -64,19 +68,7 @@ class BlueSky:
                         if dt < date_limit:
                             return
 
-                    handle = like.post.author.handle
-                    #author_profile = self._client.get_profile(handle)
-                    #followers = author_profile.followers_count
-                    #f"{like.post.author.display_name} ({followers} followers)\n"
-                    print(f"Author: {handle} "
-                          f"({like.post.author.display_name})\n"
-                          f"Author Link: https://bsky.app/profile/{handle}\n"
-                          f"Post Link: {self._at_uri_to_http_url(like.post.uri)}")
-                    if like_date:
-                        print(f"Like Date: {like_date}")
-                    print(f"Text: {like.post.record.text}")
-                    print('-----')
-
+                    yield like, like_date
                 if rsp.cursor:
                     cursor = rsp.cursor
                 else:
@@ -85,94 +77,71 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
+            # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
-    @staticmethod
-    def _print_at_protocol_error(ex):
-        print(type(ex))
-        if 'response' in dir(ex):
-            if 'status_code' in dir(ex.response):
-                print(ex.response.status_code)
-            if 'content' in dir(ex.response):
-                if 'message' in dir(ex.response.content):
-                    print(ex.response.content.message)
-
-    def follows(self, handle, full):
-        '''Output a list of users and their DIDs that the given user handle follows'''
-        for entry in self._get_follows(handle):
-            self._print_user_entry(entry, full)
-
-    def followers(self, handle, full):
-        '''Output a list of users and their DIDs that follow the given user handle'''
-        for entry in self._get_followers(handle):
-            self._print_user_entry(entry, full)
-
-    def mutuals(self, handle, flag):
-        '''Output a list of users that the given user follows and who are also
-           followers of the given user, if flag == both.
-           If flag == follows-not-followers output list of users that the user
+    def get_mutuals(self, handle, flag):
+        '''A generator to yield entries for users that the given user follows
+           and who are also followers of the given user, if flag == both.
+           If flag == follows-not-followers yield entries of users that the user
            follows who don't follow back.
-           If flag = followers-not-follows  output list of users that follow
+           If flag = followers-not-follows yield entries of users that follow
            this user that this user does not follow back'''
 
-        follows = set(entry.handle for entry in self._get_follows(handle))
-        followers = set(entry.handle for entry in self._get_followers(handle))
+        # hmm, I suppose this could be kind of heavyweight
+        dfollows = {entry.handle: entry for entry in self.follows(handle)}
+        dfollowers = {entry.handle: entry for entry in self.followers(handle)}
+
+        follows = set(dfollows.keys())
+        followers = set(dfollowers.keys())
 
         if flag == 'both':
-            result = follows & followers
+            for mutual in follows & followers:
+                yield dfollows[mutual]
         elif flag == 'follows-not-followers':
-            result = follows - followers
+            for mutual in follows - followers:
+                yield dfollows[mutual]
         elif flag == 'followers-not-follows':
-            result = followers - follows
+            for mutual in followers - follows:
+                yield dfollowers[mutual]
         else:
             raise ValueError(f"Invalid flag: '{flag}'. Expected 'both', "
                               "'follows-not-followers', or 'followers-not-follows'.")
 
-        for entry in result:
-            print(entry)
-
-    def posts(self, handle=None, date_limit_str=None, count=None):
-        '''Output all posts for the given user handle'''
+    def get_posts(self, handle=None, date_limit_str=None, count=None):
+        '''A generator to yield posts for the given user handle'''
         date_limit = self._parse_date_limit_str(date_limit_str)
 
-        for post in self._get_posts(handle, date_limit=date_limit, count_limit=count):
-            self._print_post_entry(post)
+        yield from self._get_posts(handle, date_limit=date_limit, count_limit=count)
 
-    def reposters(self, handle, full):
-        '''Output a list of all people that have reposts posts for the given user
+    def get_reposters(self, handle, date_limit_str=None):
+        '''A generator to yield people that have reposts posts for the given user
            handle'''
+        date_limit = self._parse_date_limit_str(date_limit_str)
         repost_info = {}
 
-        for post in self._get_posts(handle):
+        for post in self._get_posts(handle, date_limit=date_limit):
             if post.repost_count:
                 reposters = self._client.get_reposted_by(post.uri)
-                for r in reposters.reposted_by:
-                    if r.handle in repost_info:
-                        repost_info[r.handle]['count'] += 1
+                for profile in reposters.reposted_by:
+                    if profile.handle in repost_info:
+                        repost_info[profile.handle]['count'] += 1
                     else:
-                        repost_info[r.handle] = {
+                        repost_info[profile.handle] = {
                                 'count': 1,
-                                'display_name': r.display_name
+                                'profile': profile
                         }
 
         sorted_items = sorted(repost_info.items(),
                               key=lambda item: item[1]['count'], reverse=True)
 
-        count = 0
-        for hand, info in sorted_items:
-            if full:
-                print(f"@{hand} ({info['display_name']}): {info['count']} reposts")
-                count += info['count']
-            else:
-                print(f"@{hand}")
-        if full:
-            print(f"{count} reposts in total")
+        for _, info in sorted_items:
+            yield info['profile'], info['count']
 
-    def post(self, text, show_uri):
-        '''Post the given text'''
+    def post_text(self, text):
+        '''Post the given text and return the resulting post uri'''
         post = self._client.send_post(text)
-        if show_uri:
-            print(post.uri)
+        return post.uri
 
     def post_image(self, text, filename, alt):
         '''Post the given image with the given text and given alt-text'''
@@ -183,89 +152,97 @@ class BlueSky:
         aspect_ratio = atproto.models.AppBskyEmbedDefs.AspectRatio(
                             height=100, width=100)
 
-        print('Sending')
         rsp = self._client.send_image(text=text,
                                       image=img_data,
                                       image_alt=alt or '',
                                       image_aspect_ratio=aspect_ratio)
-        print(rsp.uri)
+        return rsp.uri
 
-    def delete(self, uri):
-        '''delete the post at the given uri'''
+    def delete_post(self, uri):
+        '''Delete the post at the given uri'''
         rsp = self._client.delete_post(uri)
-        print(rsp)
+        return rsp
 
-    def profile(self, handle):
-        '''output the profile of the given user handle'''
-        profile = self._client.get_profile(handle or self._handle)
-        self._print_user_entry(profile, True)
+    def get_profile(self, handle):
+        '''Return the profile of the given user handle'''
+        return self._client.get_profile(handle)
 
-    def notifications(self, date_limit_str=None, showall=False, mark_read=False):
-        '''output the unacknowledged notifications for the authenticated handle'''
+    def get_post(self, uri):
+        '''Get details of the post at the given uri'''
+        did, rkey = self.at_uri_to_did_rkey(uri)
+        num_failures = 0
+
+        while num_failures < self.FAILURE_LIMIT:
+            try:
+                rsp = self._client.get_post(rkey, profile_identify=did)
+                if rsp:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            # TODO: Convert to verbose log
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+
+        return rsp
+
+    def get_unread_notifications_count(self):
+        '''Return a count of the unread notifications for the authenticated user'''
+        rsp = self._client.app.bsky.notification.list_notifications()
+        count = 0
+        # Can we assume the unread notifications are first?
+        for notif in rsp.notifications:
+            if not notif.is_read:
+                count += 1
+            else:
+                break
+        return count
+
+    def get_notifications(self, date_limit_str=None, mark_read=False):
+        '''A generator to yield notifications for the authenticated handle'''
         date_limit = self._parse_date_limit_str(date_limit_str)
 
         rsp = self._client.app.bsky.notification.list_notifications()
-        notification_count, unread_count = 0, 0
-
         for notif in rsp.notifications:
             if date_limit:
                 dt = datetime.strptime(notif.record.created_at, BlueSky.DATE_FORMAT)
                 if dt < date_limit:
                     continue
 
-            if showall or not notif.is_read:
-                print(f"From: {notif.author.handle}")
-                print(f"Reason: {notif.reason}")
-                print(f"Date: {self._humanise_date_string(notif.indexed_at)}")
-                if notif.reason == 'reply':
-                    print(f"Text: {notif.record.text}")
-                    did, rkey = self._at_uri_to_did_rkey(
-                                            notif.record.reply.parent.uri)
-                    try:
-                        post = self._client.get_post(rkey, profile_identify=did)
-                        print(f"In reply to: {post.value.text}")
-                    except atproto_core.exceptions.AtProtocolError as ex:
-                        print(ex.response.status_code)
-                        print(ex.response.content.message)
-                elif notif.reason == 'like':
-                    did, rkey = self._at_uri_to_did_rkey(notif.reason_subject)
-                    try:
-                        post = self._client.get_post(rkey, profile_identify=did)
-                        print(f"Post: {post.value.text}")
-                    except atproto_core.exceptions.AtProtocolError as ex:
-                        print('Exception while retrieving liked post')
-                        print(f"Status: {ex.response.status_code}")
-                        print(f"Message: {ex.response.content.message}")
-                print('--')
-                if not notif.is_read:
-                    unread_count += 1
-            notification_count += 1
-        print(f"{notification_count} notifications, "
-              f"{notification_count - unread_count} read, "
-              f"{unread_count} unread")
+            if notif.reason == 'reply':
+                post = self.get_post(notif.record.reply.parent.uri)
+            elif notif.reason in ['like', 'repost']:
+                post = self.get_post(notif.reason_subject)
+            else:
+                post = None
+
+            yield notif, post
 
         if mark_read:
             seen_at = self._client.get_current_time_iso()
             self._client.app.bsky.notification.update_seen({'seen_at': seen_at})
 
-    def search(self, term, date_limit_str, is_follow, is_follower):
-        '''Search for the given terms'''
-        params = { 'q': f"{term}",
-                   'limit': 100 }
-        cursor = None
+    def search(self, term, author, date_limit_str, sort_order, is_follow, is_follower):
+        '''A generator to yield posts that match the given search terms'''
+        params = { 'q': term,
+                   'limit': 100,
+                   'sort': sort_order }
         date_limit = self._parse_date_limit_str(date_limit_str)
+        if author:
+            params['author'] = author
         if date_limit:
             params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
 
         if is_follow is None:
             follows = []
         else:
-            follows = [entry.handle for entry in self._get_follows(self._handle)]
+            follows = [entry.handle for entry in self.follows(self._handle)]
         if is_follower is None:
             followers = []
         else:
-            followers = [entry.handle for entry in self._get_followers(self._handle)]
+            followers = [entry.handle for entry in self.followers(self._handle)]
 
+        cursor = None
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -274,16 +251,14 @@ class BlueSky:
                 rsp = self._client.app.bsky.feed.search_posts(params=params)
                 for post in rsp.posts:
                     if is_follow is not None:
-                        if is_follow and not post.author.handle in follows:
-                            continue
-                        if not is_follow and post.author.handle in follows:
+                        if (is_follow and not post.author.handle in follows) or \
+                           (not is_follow and post.author.handle in follows):
                             continue
                     if is_follower is not None:
-                        if is_follower and not post.author.handle in followers:
+                        if (is_follower and not post.author.handle in followers) or \
+                           (not is_follower and post.author.handle in followers):
                             continue
-                        if not is_follower and post.author.handle in followers:
-                            continue
-                    self._print_post_entry(post, follows, followers)
+                    yield (post, follows, followers)
 
                 if rsp.cursor:
                     cursor = rsp.cursor
@@ -293,42 +268,26 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
+            # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def profile_did(self, handle):
-        '''Output the DID for a given user handle'''
-        user_profile = self._client.get_profile(handle)
-        print(user_profile.did)
-
-    def _login(self):
-        self._client.login(self._handle, self._password)
+        '''Return the DID for a given user handle'''
+        return self.get_profile(handle).did
 
     @staticmethod
-    def _ljust(text, length, padding=' '):
-        return text + padding * max(0, (length - wcwidth.wcswidth(text)))
-
-    @staticmethod
-    def _at_uri_to_http_url(at_uri):
+    def at_uri_to_http_url(at_uri):
         '''return the http address of the given at-uri'''
-        did, rkey = BlueSky._at_uri_to_did_rkey(at_uri)
+        did, rkey = BlueSky.at_uri_to_did_rkey(at_uri)
         return f"https://bsky.app/profile/{did}/post/{rkey}"
 
     @staticmethod
-    def _at_uri_to_did_rkey(at_uri):
+    def at_uri_to_did_rkey(at_uri):
         '''return the DID and rkey of the given at-uri'''
         _, _, did, _, rkey = at_uri.split('/')
         return did, rkey
 
-    @staticmethod
-    def _humanise_date_string(date_string):
-        try:
-            return datetime.strptime(date_string, BlueSky.DATE_FORMAT) \
-                           .strftime('%B %d, %Y at %I:%M %p UTC')
-        except ValueError:
-            # Failed to parse string, return it as a simple string
-            return str(date_string)
-
-    def _get_follows(self, handle):
+    def follows(self, handle):
         '''A generator to return an entry for each user that the given user
            handle follows'''
         cursor = None
@@ -346,9 +305,10 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
+            # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
-    def _get_followers(self, handle):
+    def followers(self, handle):
         '''A generator to return an entry for each user that follows the given user
            handle'''
         cursor = None
@@ -366,22 +326,32 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
+            # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
+    def _login(self):
+        self._client.login(self._handle, self._password)
+
     @staticmethod
-    def _print_user_entry(entry, full=False):
-        if full:
-            print("Display Name: ", entry.display_name, "\n",
-                  "Handle:       ", entry.handle, "\n",
-                  "DID:          ", entry.did, "\n",
-                  "Created at:   ", BlueSky._humanise_date_string(entry.created_at),
-                  sep='')
-            if entry.description:
-                print("Description:  ",
-                    entry.description.replace("\n", "\n              "), "\n",
-                    sep='')
-        else:
-            print(entry.handle)
+    def _ljust(text, length, padding=' '):
+        return text + padding * max(0, (length - wcwidth.wcswidth(text)))
+
+    @staticmethod
+    def _print_at_protocol_error(ex):
+        print(type(ex))
+        if 'response' in dir(ex):
+            if 'status_code' in dir(ex.response):
+                print(f"Status: {ex.response.status_code}")
+            if 'content' in dir(ex.response):
+                if 'message' in dir(ex.response.content):
+                    print(f"Message: {ex.response.content.message}")
+
+    @staticmethod
+    def _parse_date_limit_str(date_limit_str):
+        if date_limit_str:
+            return informal_date.parse(date_limit_str).replace(
+                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
+        return None
 
     def _get_posts(self, handle=None, date_limit=None, count_limit=None):
         '''A generator to return an entry for posts for the given user handle'''
@@ -413,24 +383,8 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
+            # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
-
-    @staticmethod
-    def _print_post_entry(post, follows=None, followers=None):
-        print(f"Author: {post.author.handle} ({post.author.display_name})")
-        print(f"Author Link: https://bsky.app/profile/{post.author.handle}")
-        if follows:
-            is_follow = post.author.handle in follows
-            print(f"Follows: {is_follow}")
-        if followers:
-            is_follower = post.author.handle in followers
-            print(f"Follower: {is_follower}")
-        print(f"Date: {BlueSky._humanise_date_string(post.record.created_at)}")
-        print(f"URI: {post.uri}")
-        print(f"Link: {BlueSky._at_uri_to_http_url(post.uri)}")
-        print(f"Likes: {post.like_count}")
-        print(f"Text: {post.record.text}")
-        print('-----')
 
     @staticmethod
     def _get_image_data(filename):
@@ -439,16 +393,13 @@ class BlueSky:
         scaler = 0.75
         count = 0
 
-        print('Reading image')
         with Image(filename=filename) as img:
             while count < 100:  # need some limit, surely 100 is enough
                 img_data = img.make_blob()
                 if len(img_data) < BlueSky.BLUESKY_MAX_IMAGE_SIZE:
                     break
 
-                print('Resizing', img.size)
                 img.resize(int(img.width * scaler), int(img.height * scaler))
-
                 count += 1
 
         return img_data

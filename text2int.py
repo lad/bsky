@@ -1,6 +1,7 @@
 '''Parse strings with textual representations of numbers into integers'''
 
 def parse(text):
+    '''Parse the given string and return the integer equivalent'''
     # Define a mapping of text numbers to integers
     number_map = {
         "zero": 0,
