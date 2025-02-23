@@ -7,6 +7,7 @@ import tzlocal
 
 import atproto
 import atproto_core
+import atproto_client
 import wcwidth
 from wand.image import Image
 
@@ -177,26 +178,24 @@ class BlueSky:
                 rsp = self._client.get_post(rkey, profile_identify=did)
                 if rsp:
                     break
+            except atproto_client.exceptions.BadRequestError as ex:
+                # Could they not just return a 404 like everyone else. FFS.
+                if ex.response.content.error == 'RecordNotFound':
+                    rsp = None
+                    break
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
             # TODO: Convert to verbose log
             print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            rsp = None
 
         return rsp
 
     def get_unread_notifications_count(self):
         '''Return a count of the unread notifications for the authenticated user'''
-        rsp = self._client.app.bsky.notification.list_notifications()
-        count = 0
-        # Can we assume the unread notifications are first?
-        for notif in rsp.notifications:
-            if not notif.is_read:
-                count += 1
-            else:
-                break
-        return count
+        return self._client.app.bsky.notification.get_unread_count()
 
     def get_notifications(self, date_limit_str=None, mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''
