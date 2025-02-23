@@ -1,5 +1,6 @@
 '''Parse strings with textual representations of numbers into integers'''
 
+
 def parse(text):
     '''Parse the given string and return the integer equivalent'''
     # Define a mapping of text numbers to integers
@@ -49,6 +50,7 @@ def parse(text):
     total += current
     return total
 
+
 def test():
     '''Example usage'''
     numbers = [
@@ -68,6 +70,7 @@ def test():
             print(f"{number} -> {result}")
         except ValueError as e:
             print(e)
+
 
 if __name__ == '__main__':
     test()

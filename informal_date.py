@@ -4,6 +4,7 @@ import re
 
 import text2int
 
+
 def parse(date_str):
     '''Parse the given date string into a datetime object'''
     today = datetime.now()
@@ -245,6 +246,7 @@ def test():
                          f"ten minutes ago {date_ten_minutes_ago}")
 
     print('PASS')
+
 
 if __name__ == '__main__':
     try:

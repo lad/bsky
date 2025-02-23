@@ -10,6 +10,7 @@ import configparser
 import bluesky
 import shared
 
+
 class BlueSkyCommandLine:
     '''A command line client for the BlueSky API'''
     CONFIG_PATH_DEFAULT = os.path.join(os.getcwd(), '.config')
@@ -20,8 +21,9 @@ class BlueSkyCommandLine:
         shared.VERBOSE = self.ns.verbose
         shared.DEBUG = self.ns.debug
 
-        config = self.ns.config or os.environ.get('DBCONFIG') or \
-                 BlueSkyCommandLine.CONFIG_PATH_DEFAULT
+        config = ( self.ns.config or
+                   os.environ.get('DBCONFIG') or
+                   BlueSkyCommandLine.CONFIG_PATH_DEFAULT )
         self.handle, self._password = BlueSkyCommandLine._get_config(config)
         self.bs = bluesky.BlueSky(self.handle, self._password)
 
@@ -162,9 +164,9 @@ class BlueSkyCommandLine:
         '''Print details of the given like structure'''
         self.print_profile_name(like.post.author)
         self.print_profile_link(like.post.author)
-        #author_profile = self.profile(handle)
-        #followers = author_profile.followers_count
-        #f"{like.post.author.display_name} ({followers} followers)\n"
+        # author_profile = self.profile(handle)
+        # followers = author_profile.followers_count
+        # f"{like.post.author.display_name} ({followers} followers)\n"
         print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
         if like_date:
             print(f"Like Date: {like_date}")
@@ -180,8 +182,8 @@ class BlueSkyCommandLine:
             print(f"Created at: {self.bs.humanise_date_string(profile.created_at)}")
             if profile.description:
                 print("Description:  ",
-                    profile.description.replace("\n", "\n              "), "\n",
-                    sep='')
+                      profile.description.replace("\n", "\n              "), "\n",
+                      sep='')
         else:
             print(profile.handle)
 
@@ -245,13 +247,13 @@ class BlueSkyCommandLine:
         main_parser.add_argument('--verbose', '-v', action='store_true')
         main_parser.add_argument('--debug', '-d', action='store_true')
         main_parser.add_argument('--config', '-c', dest='config', action='store',
-                                help='config file or $BSCONFIG or $PWD/.config')
+                                 help='config file or $BSCONFIG or $PWD/.config')
 
         sub_parser = main_parser.add_subparsers(title='Sub Commands')
 
         # Get all add parser methods (.add_parser_XXXX)
-        methods = [method for method in dir(self) \
-                   if callable(getattr(self, method)) \
+        methods = [method for method in dir(self)
+                   if callable(getattr(self, method))
                    if method.startswith('add_parser_')]
 
         # Invoke these methods
@@ -304,18 +306,17 @@ class BlueSkyCommandLine:
     def add_parser_mutuals(parent):
         """Add a sub-parser for the 'mutuals' command"""
         parser = parent.add_parser('mutuals',
-                                help="show who follows the given user")
+                                   help="show who follows the given user")
         parser.add_argument('handle', nargs='?', help="user's handle")
         parser.add_argument('--flag',
                             choices=['both',
-                                    'follows-not-followers',
-                                    'followers-not-follows'],
+                                     'follows-not-followers', 'followers-not-follows'],
                             default='both',
-            help="both show mutuals, "
-                "follows-not-followers show users that the given user follows that "
-                "don't follow back, "
-                "followers-not-follows show users that follow the given user that "
-                "the user doesn't follow back")
+                            help="both show mutuals, follows-not-followers show "
+                                 "users that the given user follows that don't "
+                                 "follow back, followers-not-follows show users that "
+                                 "follow the given user that the user doesn't follow "
+                                 "back")
         parser.add_argument('--full', action='store_true',
                             help='Show more details of each user')
         parser.set_defaults(func='mutuals_cmd',
@@ -339,14 +340,14 @@ class BlueSkyCommandLine:
         parser.add_argument('--count', '-c', type=int, action='store',
                             help='Count of posts to display')
         parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.set_defaults(func='posts_cmd', func_args=lambda ns: [ns.handle,
-                                                                ns.since, ns.count])
+        parser.set_defaults(func='posts_cmd',
+                            func_args=lambda ns: [ns.handle, ns.since, ns.count])
 
     @staticmethod
     def add_parser_post_image(parent):
         """Add a sub-parser for the 'posts_image' command"""
         parser = parent.add_parser('postimage', aliases=['pi'],
-                                help='post image to BlueSky')
+                                   help='post image to BlueSky')
         parser.add_argument('text', action='store', help='text to post')
         parser.add_argument('filename', action='store', help='Path to image file')
         parser.add_argument('--alt', '-a', action='store', help='Image alt text')
@@ -439,10 +440,10 @@ class BlueSkyCommandLine:
                                  '(true) or not followers (false) of the '
                                  'authenticated user')
         parser.set_defaults(func='search_cmd',
-                            func_args=lambda ns: [ns.term, ns.author,
-                                                  ns.since, ns.sort,
-                                        BlueSkyCommandLine._true_false(ns.follow),
-                                        BlueSkyCommandLine._true_false(ns.follower)])
+                            func_args=lambda ns:
+                            [ns.term, ns.author, ns.since, ns.sort,
+                             BlueSkyCommandLine._true_false(ns.follow),
+                             BlueSkyCommandLine._true_false(ns.follower)])
 
     @staticmethod
     def _true_false(flag):

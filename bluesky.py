@@ -107,7 +107,7 @@ class BlueSky:
                 yield dfollowers[mutual]
         else:
             raise ValueError(f"Invalid flag: '{flag}'. Expected 'both', "
-                              "'follows-not-followers', or 'followers-not-follows'.")
+                             f"'follows-not-followers', or 'followers-not-follows'.")
 
     def get_posts(self, handle=None, date_limit_str=None, count=None):
         '''A generator to yield posts for the given user handle'''
@@ -250,11 +250,11 @@ class BlueSky:
                 rsp = self._client.app.bsky.feed.search_posts(params=params)
                 for post in rsp.posts:
                     if is_follow is not None:
-                        if (is_follow and not post.author.handle in follows) or \
+                        if (is_follow and post.author.handle not in follows) or \
                            (not is_follow and post.author.handle in follows):
                             continue
                     if is_follower is not None:
-                        if (is_follower and not post.author.handle in followers) or \
+                        if (is_follower and post.author.handle not in followers) or \
                            (not is_follower and post.author.handle in followers):
                             continue
                     yield (post, follows, followers)
@@ -365,7 +365,7 @@ class BlueSky:
                 for view in feed.feed:
                     if date_limit:
                         dt = datetime.strptime(view.post.record.created_at,
-                                            BlueSky.DATE_FORMAT)
+                                               BlueSky.DATE_FORMAT)
                         if dt < date_limit:
                             return
                     if count_limit:
