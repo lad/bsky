@@ -11,7 +11,7 @@ import atproto_client
 import wcwidth
 from wand.image import Image
 
-import informal_date
+import date
 
 
 class BlueSky:
@@ -39,7 +39,7 @@ class BlueSky:
             return str(date_string)
 
     def get_likes(self, date_limit_str, get_date):
-        '''A generator to yiled posts that the given user handle has liked'''
+        '''A generator to yield posts that the given user handle has liked'''
         params = {
                 "actor": self._handle,
                 "limit": 100,
@@ -348,8 +348,7 @@ class BlueSky:
     @staticmethod
     def _parse_date_limit_str(date_limit_str):
         if date_limit_str:
-            return informal_date.parse(date_limit_str).replace(
-                                                        tzinfo=BlueSky.LOCAL_TIMEZONE)
+            return date.parse(date_limit_str).replace(tzinfo=BlueSky.LOCAL_TIMEZONE)
         return None
 
     def _get_posts(self, handle=None, date_limit=None, count_limit=None):
