@@ -112,7 +112,7 @@ class BlueSkyCommandLine:
            reposted the user's posts'''
         total = 0
         for profile, count in self.bs.get_reposters(handle or self.handle, since):
-            self.print_profile_name(profile, since)
+            self.print_profile_name(profile)
             if full:
                 print(f"Count: {count}")
             total += 1
