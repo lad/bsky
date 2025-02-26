@@ -8,6 +8,7 @@ import argparse
 import configparser
 
 import bluesky
+import date
 import shared
 
 
@@ -103,8 +104,8 @@ class BlueSkyCommandLine:
     def likes_cmd(self, since, show_date):
         '''Print details of the likes submitted by the currently authenticated user,
            optionally limited by the supplied date.'''
-        for like, like_date in self.bs.get_likes(since, show_date):
-            self.print_like(like, like_date)
+        for like in self.bs.get_likes(since, show_date):
+            self.print_like(like)
 
     def reposters_cmd(self, handle, since, full):
         '''Print the user handles of the users that have reposted posts by the
@@ -160,7 +161,7 @@ class BlueSkyCommandLine:
                                                        is_follow, is_follower):
             self.print_post_entry(post, follows=follows, followers=followers)
 
-    def print_like(self, like, like_date):
+    def print_like(self, like):
         '''Print details of the given like structure'''
         self.print_profile_name(like.post.author)
         self.print_profile_link(like.post.author)
@@ -168,8 +169,8 @@ class BlueSkyCommandLine:
         # followers = author_profile.followers_count
         # f"{like.post.author.display_name} ({followers} followers)\n"
         print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
-        if like_date:
-            print(f"Like Date: {like_date}")
+        if like.created_at:
+            print(f"Like Date: {date.humanise_date_string(like.created_at)}")
         print(f"Text: {like.post.record.text}")
         print('-----')
 

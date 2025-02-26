@@ -17,7 +17,6 @@ import date
 class BlueSky:
     '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
-    DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
     LOCAL_TIMEZONE = tzlocal.get_localzone()
     FAILURE_LIMIT = 10
 
@@ -26,17 +25,6 @@ class BlueSky:
         self._password = password
         self._client = atproto.Client()
         self._login()
-
-    @staticmethod
-    def humanise_date_string(date_string):
-        '''Convert the given BlueSky date string into something more readable
-           for human consumption'''
-        try:
-            return datetime.strptime(date_string, BlueSky.DATE_FORMAT) \
-                           .strftime('%B %d, %Y at %I:%M %p UTC')
-        except ValueError:
-            # Failed to parse string, return it as a simple string
-            return str(date_string)
 
     def get_likes(self, date_limit_str, get_date):
         '''A generator to yield posts that the given user handle has liked'''
@@ -59,17 +47,17 @@ class BlueSky:
                     if date_limit or get_date:
                         like_rsp = self._client.app.bsky.feed.like.get(
                                       *self.at_uri_to_did_rkey(like.post.viewer.like))
-                        created_at = like_rsp.value.created_at
-                        like_date = BlueSky.humanise_date_string(created_at)
+                        like.created_at = like_rsp.value.created_at
                     else:
-                        like_date = None
+                        like.created_at = None
 
                     if date_limit:
-                        dt = datetime.strptime(created_at, BlueSky.DATE_FORMAT)
+                        dt = datetime.strptime(like.created_at,
+                                               date.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             return
 
-                    yield like, like_date
+                    yield like
                 if rsp.cursor:
                     cursor = rsp.cursor
                 else:
@@ -197,7 +185,8 @@ class BlueSky:
         rsp = self._client.app.bsky.notification.list_notifications()
         for notif in rsp.notifications:
             if date_limit:
-                dt = datetime.strptime(notif.record.created_at, BlueSky.DATE_FORMAT)
+                dt = datetime.strptime(notif.record.created_at,
+                                       date.BLUESKY_DATE_FORMAT)
                 if dt < date_limit:
                     continue
 
@@ -359,7 +348,7 @@ class BlueSky:
                 for view in feed.feed:
                     if date_limit:
                         dt = datetime.strptime(view.post.record.created_at,
-                                               BlueSky.DATE_FORMAT)
+                                               date.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             return
                     if count_limit:

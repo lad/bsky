@@ -4,6 +4,8 @@ import re
 
 import text2int
 
+BLUESKY_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
+
 
 def parse(date_str):
     '''Parse the given date string into a datetime object'''
@@ -103,6 +105,18 @@ def parse(date_str):
                                                                 microsecond=0)
 
     raise ValueError("Unsupported informal date format")
+
+
+@staticmethod
+def humanise_date_string(date_string):
+    '''Convert the given BlueSky date string into something more readable
+        for human consumption'''
+    try:
+        return datetime.strptime(date_string, BLUESKY_DATE_FORMAT) \
+                        .strftime('%B %d, %Y at %I:%M %p UTC')
+    except ValueError:
+        # Failed to parse string, return it as a simple string
+        return str(date_string)
 
 
 def test():
