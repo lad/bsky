@@ -1,13 +1,20 @@
 '''Parse informal date strings into datetime objects'''
 from datetime import datetime, timedelta
+import tzlocal
 import re
 
 import text2int
 
 BLUESKY_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
+LOCAL_TIMEZONE = tzlocal.get_localzone()
 
 
-def parse(date_str):
+@staticmethod
+def parse(date_limit_str):
+    return _parse(date_limit_str).replace(tzinfo=LOCAL_TIMEZONE)
+
+
+def _parse(date_str):
     '''Parse the given date string into a datetime object'''
     today = datetime.now()
     date_str = date_str.lower().strip()

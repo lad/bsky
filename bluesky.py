@@ -3,7 +3,6 @@
 # pylint: disable=W0511
 
 from datetime import datetime
-import tzlocal
 
 import atproto
 import atproto_core
@@ -17,7 +16,6 @@ import date
 class BlueSky:
     '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
-    LOCAL_TIMEZONE = tzlocal.get_localzone()
     FAILURE_LIMIT = 10
 
     def __init__(self, handle, password):
@@ -33,7 +31,7 @@ class BlueSky:
                 "limit": 100,
                 }
         cursor = None
-        date_limit = self._parse_date_limit_str(date_limit_str)
+        date_limit = date.parse(date_limit_str) if date_limit_str else None
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -180,7 +178,7 @@ class BlueSky:
 
     def get_notifications(self, date_limit_str=None, mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''
-        date_limit = self._parse_date_limit_str(date_limit_str)
+        date_limit = date.parse(date_limit_str) if date_limit_str else None
 
         rsp = self._client.app.bsky.notification.list_notifications()
         for notif in rsp.notifications:
@@ -208,7 +206,7 @@ class BlueSky:
         params = { 'q': term,
                    'limit': 100,
                    'sort': sort_order }
-        date_limit = self._parse_date_limit_str(date_limit_str)
+        date_limit = date.parse(date_limit_str) if date_limit_str else None
         if author:
             params['author'] = author
         if date_limit:
@@ -327,16 +325,10 @@ class BlueSky:
                 if 'message' in dir(ex.response.content):
                     print(f"Message: {ex.response.content.message}")
 
-    @staticmethod
-    def _parse_date_limit_str(date_limit_str):
-        if date_limit_str:
-            return date.parse(date_limit_str).replace(tzinfo=BlueSky.LOCAL_TIMEZONE)
-        return None
-
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
                   reply=False, original=False):
         '''A generator to return an entry for posts for the given user handle'''
-        date_limit = self._parse_date_limit_str(date_limit_str)
+        date_limit = date.parse(date_limit_str) if date_limit_str else None
         cursor = None
         actor = handle or self._handle
         count = 0

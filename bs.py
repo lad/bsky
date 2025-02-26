@@ -180,7 +180,7 @@ class BlueSkyCommandLine:
             self.print_profile_name(profile)
             self.print_profile_link(profile)
             print(f"DID: {profile.did}")
-            print(f"Created at: {self.bs.humanise_date_string(profile.created_at)}")
+            print(f"Created at: {date.humanise_date_string(profile.created_at)}")
             if profile.description:
                 print("Description:  ",
                       profile.description.replace("\n", "\n              "), "\n",
@@ -212,7 +212,7 @@ class BlueSkyCommandLine:
         if followers:
             is_follower = post.author.handle in followers
             print(f"Follower: {is_follower}")
-        print(f"Date: {self.bs.humanise_date_string(post.record.created_at)}")
+        print(f"Date: {date.humanise_date_string(post.record.created_at)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
         if reply:
@@ -226,7 +226,7 @@ class BlueSkyCommandLine:
         self.print_profile_name(notif.author)
         self.print_profile_link(notif.author)
         print(f"Reason: {notif.reason}")
-        print(f"Date: {self.bs.humanise_date_string(notif.indexed_at)}")
+        print(f"Date: {date.humanise_date_string(notif.indexed_at)}")
         if post:
             print(f"Post: {post.value.text}")
         if hasattr(notif.record, 'text'):
