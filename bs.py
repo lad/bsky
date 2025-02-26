@@ -63,11 +63,11 @@ class BlueSkyCommandLine:
         if show_uri:
             print(uri)
 
-    def posts_cmd(self, handle, since, count):
+    def posts_cmd(self, handle, since, count, reply, original):
         '''Print the posts by the given user handle limited by the date and count
            supplied'''
-        for post in self.bs.get_posts(handle, since, count):
-            self.print_post_entry(post)
+        for post in self.bs.get_posts(handle, since, count, reply, original):
+            self.print_post_entry(post, reply=reply)
 
     def delete_cmd(self, uri):
         '''Delete the post at the given uri'''
@@ -158,7 +158,7 @@ class BlueSkyCommandLine:
            follower or is followed by the currently authenticated user'''
         for post, follows, followers in self.bs.search(term, author, since, sort_order,
                                                        is_follow, is_follower):
-            self.print_post_entry(post, follows, followers)
+            self.print_post_entry(post, follows=follows, followers=followers)
 
     def print_like(self, like, like_date):
         '''Print details of the given like structure'''
@@ -201,7 +201,7 @@ class BlueSkyCommandLine:
         '''Print the DID of the given user'''
         print(self.bs.profile_did(handle or self.handle))
 
-    def print_post_entry(self, post, follows=None, followers=None):
+    def print_post_entry(self, post, follows=None, followers=None, reply=None):
         '''Print details of the given post structure'''
         self.print_profile_name(post.author)
         self.print_profile_link(post.author)
@@ -214,6 +214,8 @@ class BlueSkyCommandLine:
         print(f"Date: {self.bs.humanise_date_string(post.record.created_at)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
+        if reply:
+            print(f"Reply Link: {self.bs.at_uri_to_http_url(post.reply.root.uri)}")
         print(f"Likes: {post.like_count}")
         print(f"Text: {post.record.text}")
         print('-----')
@@ -340,8 +342,15 @@ class BlueSkyCommandLine:
         parser.add_argument('--count', '-c', type=int, action='store',
                             help='Count of posts to display')
         parser.add_argument('handle', nargs='?', help="user's handle")
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
         parser.set_defaults(func='posts_cmd',
-                            func_args=lambda ns: [ns.handle, ns.since, ns.count])
+                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
+                                                  ns.reply, ns.original])
 
     @staticmethod
     def add_parser_post_image(parent):

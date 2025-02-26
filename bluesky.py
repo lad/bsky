@@ -344,7 +344,8 @@ class BlueSky:
             return date.parse(date_limit_str).replace(tzinfo=BlueSky.LOCAL_TIMEZONE)
         return None
 
-    def get_posts(self, handle=None, date_limit_str=None, count_limit=None):
+    def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
+                  reply=False, original=False):
         '''A generator to return an entry for posts for the given user handle'''
         date_limit = self._parse_date_limit_str(date_limit_str)
         cursor = None
@@ -365,6 +366,12 @@ class BlueSky:
                         count += 1
                         if count > count_limit:
                             return
+                    if reply and not view.reply:
+                        continue
+                    if original and view.reply:
+                        continue
+
+                    view.post.reply = view.reply
                     yield view.post
 
                 if feed.cursor:
