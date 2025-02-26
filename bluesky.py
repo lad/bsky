@@ -109,19 +109,12 @@ class BlueSky:
             raise ValueError(f"Invalid flag: '{flag}'. Expected 'both', "
                              f"'follows-not-followers', or 'followers-not-follows'.")
 
-    def get_posts(self, handle=None, date_limit_str=None, count=None):
-        '''A generator to yield posts for the given user handle'''
-        date_limit = self._parse_date_limit_str(date_limit_str)
-
-        yield from self._get_posts(handle, date_limit=date_limit, count_limit=count)
-
     def get_reposters(self, handle, date_limit_str=None):
         '''A generator to yield people that have reposts posts for the given user
            handle'''
-        date_limit = self._parse_date_limit_str(date_limit_str)
         repost_info = {}
 
-        for post in self._get_posts(handle, date_limit=date_limit):
+        for post in self.get_posts(handle, date_limit_str=date_limit_str):
             if post.repost_count:
                 reposters = self._client.get_reposted_by(post.uri)
                 for profile in reposters.reposted_by:
@@ -351,8 +344,9 @@ class BlueSky:
             return date.parse(date_limit_str).replace(tzinfo=BlueSky.LOCAL_TIMEZONE)
         return None
 
-    def _get_posts(self, handle=None, date_limit=None, count_limit=None):
+    def get_posts(self, handle=None, date_limit_str=None, count_limit=None):
         '''A generator to return an entry for posts for the given user handle'''
+        date_limit = self._parse_date_limit_str(date_limit_str)
         cursor = None
         actor = handle or self._handle
         count = 0
