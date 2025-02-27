@@ -176,26 +176,52 @@ class BlueSky:
         '''Return a count of the unread notifications for the authenticated user'''
         return self._client.app.bsky.notification.get_unread_count()
 
-    def get_notifications(self, date_limit_str=None, mark_read=False):
+    def get_notifications(self, date_limit_str=None, count_limit=None,
+                          mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''
         date_limit = date.parse(date_limit_str) if date_limit_str else None
+        count = 0
+        num_failures = 0
+        cursor = None
 
-        rsp = self._client.app.bsky.notification.list_notifications()
-        for notif in rsp.notifications:
-            if date_limit:
-                dt = datetime.strptime(notif.record.created_at,
-                                       date.BLUESKY_DATE_FORMAT)
-                if dt < date_limit:
-                    continue
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                rsp = self._client.app.bsky.notification.list_notifications(
+                        params={'cursor': cursor})
+                for notif in rsp.notifications:
+                    if date_limit:
+                        dt = datetime.strptime(notif.record.created_at,
+                                            date.BLUESKY_DATE_FORMAT)
+                        if dt < date_limit:
+                            # Once we get to notifications older than the date
+                            # limit, we assume the rest of the notifications are
+                            # older, we're done
+                            return
 
-            if notif.reason == 'reply':
-                post = self.get_post(notif.record.reply.parent.uri)
-            elif notif.reason in ['like', 'repost']:
-                post = self.get_post(notif.reason_subject)
-            else:
-                post = None
+                    if count_limit:
+                        count += 1
+                        if count > count_limit:
+                            return
 
-            yield notif, post
+                    if notif.reason == 'reply':
+                        post = self.get_post(notif.record.reply.parent.uri)
+                    elif notif.reason in ['like', 'repost']:
+                        post = self.get_post(notif.reason_subject)
+                    else:
+                        post = None
+
+                    yield notif, post
+
+                if rsp.cursor:
+                    cursor = rsp.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            # TODO: Convert to verbose log
+            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
         if mark_read:
             seen_at = self._client.get_current_time_iso()
@@ -310,6 +336,7 @@ class BlueSky:
 
     def _login(self):
         self._client.login(self._handle, self._password)
+        #self._client.login(self._handle, 'c')
 
     @staticmethod
     def _ljust(text, length, padding=' '):

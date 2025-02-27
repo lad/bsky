@@ -68,7 +68,7 @@ class BlueSkyCommandLine:
         '''Print the posts by the given user handle limited by the date and count
            supplied'''
         for post in self.bs.get_posts(handle, since, count, reply, original):
-            self.print_post_entry(post, reply=reply)
+            self.print_post_entry(post)
 
     def delete_cmd(self, uri):
         '''Delete the post at the given uri'''
@@ -80,11 +80,13 @@ class BlueSkyCommandLine:
         profile = self.bs.get_profile(handle or self.handle)
         self.print_profile(profile, True)
 
-    def notifications_cmd(self, since, show_all, mark):
+    def notifications_cmd(self, since, show_all, count_limit, mark):
         '''Print the unread, or all, notifications received, optionally since the
            date supplied. Optionally mark the unread notifications as read'''
         notification_count, unread_count = 0, 0
-        for notif, post in self.bs.get_notifications(since, mark):
+        for notif, post in self.bs.get_notifications(date_limit_str=since,
+                                                     count_limit=count_limit,
+                                                     mark_read=mark):
             if show_all or not notif.is_read:
                 self.print_notification_entry(notif, post)
 
@@ -176,8 +178,8 @@ class BlueSkyCommandLine:
 
     def print_profile(self, profile, full=False):
         '''Print details of the given profile structure'''
+        self.print_profile_name(profile)
         if full:
-            self.print_profile_name(profile)
             self.print_profile_link(profile)
             print(f"DID: {profile.did}")
             print(f"Created at: {date.humanise_date_string(profile.created_at)}")
@@ -185,8 +187,6 @@ class BlueSkyCommandLine:
                 print("Description:  ",
                       profile.description.replace("\n", "\n              "), "\n",
                       sep='')
-        else:
-            print(profile.handle)
 
     @staticmethod
     def print_profile_name(author):
@@ -202,7 +202,7 @@ class BlueSkyCommandLine:
         '''Print the DID of the given user'''
         print(self.bs.profile_did(handle or self.handle))
 
-    def print_post_entry(self, post, follows=None, followers=None, reply=None):
+    def print_post_entry(self, post, follows=None, followers=None):
         '''Print details of the given post structure'''
         self.print_profile_name(post.author)
         self.print_profile_link(post.author)
@@ -215,7 +215,7 @@ class BlueSkyCommandLine:
         print(f"Date: {date.humanise_date_string(post.record.created_at)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
-        if reply:
+        if post.reply:
             print(f"Reply Link: {self.bs.at_uri_to_http_url(post.reply.root.uri)}")
         print(f"Likes: {post.like_count}")
         print(f"Text: {post.record.text}")
@@ -404,10 +404,12 @@ class BlueSkyCommandLine:
                             help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--all', '-a', action='store_true',
                             help='Show both read and unread notifications')
+        parser.add_argument('--count', '-c', action='store', type=int,
+                            help='Max number of notifications to show')
         parser.add_argument('--mark', '-m', action='store_true',
                             help='Mark notifications as seen')
         parser.set_defaults(func='notifications_cmd',
-                            func_args=lambda ns: [ns.since, ns.all, ns.mark])
+                            func_args=lambda ns: [ns.since, ns.all, ns.count, ns.mark])
 
     @staticmethod
     def add_parser_has_unread_notifications(parent):
@@ -477,6 +479,7 @@ def main():
             import traceback    # pylint: disable=import-outside-toplevel
             traceback.print_exc()
         else:
+            print(type(ex))
             print(ex)
         sys.exit(1)
 
