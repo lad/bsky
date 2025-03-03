@@ -107,17 +107,18 @@ class BlueSky:
                 for profile in reposters.reposted_by:
                     if profile.handle in repost_info:
                         repost_info[profile.handle]['count'] += 1
+                        repost_info[profile.handle]['posts'].append(post)
                     else:
                         repost_info[profile.handle] = {
                                 'count': 1,
-                                'profile': profile
+                                'profile': profile,
+                                'posts': [post]
                         }
 
-        sorted_items = sorted(repost_info.items(),
-                              key=lambda item: item[1]['count'], reverse=True)
+        sorted_items = sorted(repost_info.values(),
+                              key=lambda item: item['count'], reverse=True)
 
-        for _, info in sorted_items:
-            yield info['profile'], info['count']
+        yield from sorted_items
 
     def post_text(self, text):
         '''Post the given text and return the resulting post uri'''

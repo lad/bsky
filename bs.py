@@ -114,11 +114,14 @@ class BlueSkyCommandLine:
            given user handle. Optionally print the count of times each user has
            reposted the user's posts'''
         total = 0
-        for profile, count in self.bs.get_reposters(handle or self.handle, since):
-            self.print_profile_name(profile)
+        for repost_info in self.bs.get_reposters(handle or self.handle, since):
+            self.print_profile(repost_info['profile'], full)
             if full:
-                print(f"Count: {count}")
-            total += 1
+                for post in repost_info['posts']:
+                    print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
+                print(f"Repost Count: {repost_info['count']}")
+                print()
+            total += repost_info['count']
         if full:
             print(f"Total Reposts: {total}")
 
