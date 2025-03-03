@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 '''Parse informal date strings into datetime objects'''
+import dateutil
 from datetime import datetime, timedelta
 import tzlocal
 import re
@@ -11,7 +14,18 @@ LOCAL_TIMEZONE = tzlocal.get_localzone()
 
 @staticmethod
 def parse(date_limit_str):
-    return _parse(date_limit_str).replace(tzinfo=LOCAL_TIMEZONE)
+    try:
+        # Parse the date string
+        parsed_date = dateutil.parser.parse(date_limit_str)
+        dt = parsed_date
+    except ValueError as e:
+        dt = _parse(date_limit_str).replace(tzinfo=LOCAL_TIMEZONE)
+
+    if not dt:
+        print(f"Error parsing date: {e}")
+        return None
+
+    return dt.replace(tzinfo=LOCAL_TIMEZONE)
 
 
 def _parse(date_str):
@@ -271,6 +285,15 @@ def test():
 
 if __name__ == '__main__':
     try:
-        test()
+        import argparse
+        import sys
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--parse', '-p', action='store')
+        ns = parser.parse_args(sys.argv[1:])
+
+        if ns.parse:
+            print(parse(ns.parse))
+        else:
+            test()
     except ValueError as ex:
         print(ex)

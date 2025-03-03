@@ -56,6 +56,7 @@ class BlueSky:
                             return
 
                     yield like
+
                 if rsp.cursor:
                     cursor = rsp.cursor
                 else:
