@@ -125,6 +125,17 @@ class BlueSky:
         post = self._client.send_post(text)
         return post.uri
 
+    def post_rich(self, text, mentions):
+        '''Post the given text with the given user handle mentions'''
+        tb = atproto.client_utils.TextBuilder()
+        tb.text(f"{text}\n")
+        for handle in mentions:
+            tb.mention(f"@{handle}", self.profile_did(handle))
+            tb.text("\n")
+        post = self._client.send_post(tb)
+        return post.uri
+
+
     def post_image(self, text, filename, alt):
         '''Post the given image with the given text and given alt-text'''
         img_data = self._get_image_data(filename)

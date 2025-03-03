@@ -58,6 +58,11 @@ class BlueSkyCommandLine:
         if show_uri:
             print(uri)
 
+    def rich_cmd(self, text, mentions, show_uri):
+        uri = self.bs.post_rich(text, mentions)
+        if show_uri:
+            print(uri)
+
     def postimage_cmd(self, text, filename, alt, show_uri):
         '''Post the given image with the given text and given alt-text'''
         uri = self.bs.post_image(text, filename, alt)
@@ -115,13 +120,15 @@ class BlueSkyCommandLine:
            reposted the user's posts'''
         total = 0
         for repost_info in self.bs.get_reposters(handle or self.handle, since):
-            self.print_profile(repost_info['profile'], full)
             if full:
+                self.print_profile(repost_info['profile'], full)
                 for post in repost_info['posts']:
                     print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
+                total += repost_info['count']
                 print(f"Repost Count: {repost_info['count']}")
                 print()
-            total += repost_info['count']
+            else:
+                print(f"@{repost_info['profile'].handle}")
         if full:
             print(f"Total Reposts: {total}")
 
@@ -336,6 +343,18 @@ class BlueSkyCommandLine:
         parser.add_argument('--uri', '-u', action='store_true',
                             help='Show URI of post')
         parser.set_defaults(func='post_cmd', func_args=lambda ns: [ns.text, ns.uri])
+
+    @staticmethod
+    def add_parser_rich(parent):
+        """Add a sub-parser for the 'rich' command"""
+        parser = parent.add_parser('rich', help='post text to BlueSky')
+        parser.add_argument('text', action='store', help='text to post')
+        parser.add_argument('--mentions', '-m', nargs='+',
+                            help='A list of user mentions (no @ required)')
+        parser.add_argument('--uri', '-u', action='store_true',
+                            help='Show URI of post')
+        parser.set_defaults(func='rich_cmd',
+                            func_args=lambda ns: [ns.text, ns.mentions, ns.uri])
 
     @staticmethod
     def add_parser_posts(parent):
