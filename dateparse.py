@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 
 '''Parse informal date strings into datetime objects'''
-from dateutil.parser import parse as dateutil_parser
 from datetime import datetime, timedelta
-import tzlocal
 import re
 
+import tzlocal
+from dateutil.parser import parse as dateutil_parser
+
 import text2int
+
+# pylint: disable=R0911,R0912
+# Ignore pylint peevishness. These kinds of restrictions are what ruined many
+# python and ruby codebases.
 
 BLUESKY_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
 LOCAL_TIMEZONE = tzlocal.get_localzone()
 
 
 def parse(date_limit_str):
+    '''Parse the given date string into a datetime object'''
     try:
-        # Parse the date string
         parsed_date = dateutil_parser(date_limit_str)
         dt = parsed_date
     except ValueError:

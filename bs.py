@@ -11,6 +11,10 @@ import bluesky
 import dateparse
 import shared
 
+# pylint: disable=R0904,R0912,R0913,R0914,R0917
+# Ignore pylint peevishness. These kinds of restrictions are what ruined many
+# python and ruby codebases.
+
 
 class BlueSkyCommandLine:
     '''A command line client for the BlueSky API'''
@@ -59,6 +63,7 @@ class BlueSkyCommandLine:
             print(uri)
 
     def rich_cmd(self, text, mentions, show_uri):
+        '''Example command to post using rich text for "mentions"'''
         uri = self.bs.post_rich(text, mentions)
         if show_uri:
             print(uri)
@@ -131,39 +136,6 @@ class BlueSkyCommandLine:
                 print(f"@{repost_info['profile'].handle}")
         if full:
             print(f"Total Reposts: {total}")
-
-    # Specifies the ranking order of results.
-    # until (string)
-    #
-    # Filter results for posts before the indicated datetime (not inclusive).
-    # Expected to use 'sortAt' timestamp, which may not match 'createdAt'. Can be
-    # a datetime, or just an ISO date (YYY-MM-DD).
-    #
-    # mentions (at-identifier)
-    #
-    # Filter to posts which mention the given account. Handles are resolved to
-    # DID before query-time. Only matches rich-text facet mentions.
-    #
-    #
-    # author (at-identifier)
-    #
-    # Filter to posts by the given account. Handles are resolved to DID before
-    # query-time.
-    #
-    #
-    #
-    # tag (string[])
-    #
-    # Possible values: <= 640 characters
-    #
-    # Filter to posts with the given tag (hashtag), based on rich-text facet or
-    # tag field. Do not include the hash (#) prefix. Multiple tags can be
-    #                                     specified, with 'AND' matching.
-    #
-    # limit (integer)
-    #
-    # Possible values: >= 1 and <= 100
-    # Default value: 25
 
     def search_cmd(self, term, author, since, sort_order, is_follow, is_follower):
         '''Print posts that match the given search terms. Optionally limit the

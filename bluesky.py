@@ -12,6 +12,9 @@ from wand.image import Image
 
 import dateparse
 
+# pylint: disable=R0912,R0913,R0914,R0917,R0904
+# Ignore pylint peevishness. These kinds of restrictions are what ruined many
+# python and ruby codebases.
 
 class BlueSky:
     '''Command line client for Blue Sky'''
