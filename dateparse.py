@@ -48,7 +48,7 @@ def _parse(date_str):
 
 
 def _parse_today_yesterday_tomorrow(today, date_str):
-    # Handle today, yesterday, tomorrow, last day
+    '''parse the given date string: handle today, yesterday, tomorrow'''
     if date_str == 'today':
         dt = today
     elif date_str == 'yesterday':
@@ -65,6 +65,7 @@ def _parse_today_yesterday_tomorrow(today, date_str):
 
 
 def _parse_days(today, date_str):
+    '''parse the given date string for days'''
     # Handle "last day"
     if date_str == "last day":
         date_str = 'last 1 day'
@@ -91,6 +92,7 @@ def _parse_days(today, date_str):
 
 
 def _parse_hours(today, date_str):
+    '''parse the given date string for hours'''
     # Handle "last hour"
     if date_str == "last hour":
         date_str = 'last 1 hour'
@@ -116,8 +118,9 @@ def _parse_hours(today, date_str):
 
 
 def _parse_minutes(today, date_str):
-    # Handle "last minute"
-    if date_str == "last minute" or date_str == "last min":
+    '''parse the given date string for minutes'''
+    # Handle last minute/last min
+    if date_str in ["last minute", "last min"]:
         date_str = 'last 1 minute'
 
     # <n> minutes
@@ -147,7 +150,7 @@ def humanise_date_string(date_string):
         for human consumption'''
     try:
         return datetime.strptime(date_string, BLUESKY_DATE_FORMAT) \
-                        .strftime('%B %d, %Y at %I:%M %p UTC')
+                       .strftime('%B %d, %Y at %I:%M %p UTC')
     except ValueError:
         # Failed to parse string, return it as a simple string
         return str(date_string)
