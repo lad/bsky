@@ -9,10 +9,6 @@ from dateutil.parser import parse as dateutil_parser
 
 import text2int
 
-# pylint: disable=R0911,R0912
-# Ignore pylint peevishness. These kinds of restrictions are what ruined many
-# python and ruby codebases.
-
 BLUESKY_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
 LOCAL_TIMEZONE = tzlocal.get_localzone()
 
@@ -37,93 +33,116 @@ def _parse(date_str):
     today = datetime.now()
     date_str = date_str.lower().strip()
 
-    # Handle: HH:MM and assume today's date
     try:
-        tm = datetime.strptime(date_str, '%H:%M')
-        return datetime.combine(today.date(), tm.time())
+        return _parse_today_yesterday_tomorrow(today, date_str)
     except ValueError:
         pass
 
+    try:
+        return _parse_days(today, date_str)
+    except ValueError:
+        pass
+
+    try:
+        return _parse_hours(today, date_str)
+    except ValueError:
+        pass
+
+    try:
+        return _parse_minutes(today, date_str)
+    except ValueError:
+        pass
+
+    raise ValueError("Unsupported informal date format")
+
+
+def _parse_today_yesterday_tomorrow(today, date_str):
     # Handle today, yesterday, tomorrow, last day
     if date_str == 'today':
-        return today.replace(hour=0, minute=0, second=0, microsecond=0)
-    if date_str in ['yesterday', 'last day']:
-        return (today - timedelta(days=1)).replace(hour=0, minute=0,
-                                                   second=0, microsecond=0)
-    if date_str == 'tomorrow':
-        return (today + timedelta(days=1)).replace(hour=0, minute=0,
-                                                   second=0, microsecond=0)
+        dt = today
+    elif date_str == 'yesterday':
+        dt = today - timedelta(days=1)
+    elif date_str == 'tomorrow':
+        dt = today + timedelta(days=1)
+    else:
+        dt = None
 
-    # Handle:
-    #   <n> days
-    #   <n> days ago
-    #   last <n> days
+    if dt:
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    raise ValueError()
+
+
+def _parse_days(today, date_str):
+    # Handle "last day"
+    if date_str == "last day":
+        date_str = 'last 1 day'
+
+    # <n> days, <n> days ago, last <n> days
     match = re.match(r'(last\s+)?(\d+)\s+days?(\s+ago)?', date_str)
-    if match:
-        days_ago = int(match.group(2))
-        return (today - timedelta(days=days_ago)).replace(hour=0, minute=0,
-                                                          second=0, microsecond=0)
 
-    # Handle:
-    #   one day, two days...nine days
-    #   one day ago, two days ago...nine days ago
-    #   last one day, last two days...last nine days
-    match = re.match(r'(last\s+)?(\w+)\s+days?(\s+ago)?', date_str)
+    # one day, two days...nine days
+    # one day ago, two days ago...nine days ago
+    # last one day, last two days...last nine days
     if not match:
-        # As above but with two words for the days like "thirty seven days ago"
+        match = re.match(r'(last\s+)?(\w+)\s+days?(\s+ago)?', date_str)
+
+    # As above but with two words for the days like "thirty seven days ago"
+    if not match:
         match = re.match(r'(last\s+)?(\w+\s+\w+)\s+days?(\s+ago)?', date_str)
+
     if match:
         days = text2int.parse(match.group(2))
         return (today - timedelta(days=days)).replace(hour=0, minute=0,
                                                       second=0, microsecond=0)
 
-    # Handle:
-    #   <n> hours
-    #   <n> hours ago
-    #   last <n> hours
-    match = re.match(r'(last\s+)?(\d+)\s+hours?(\s+ago)?', date_str)
-    if match:
-        hours_ago = int(match.group(2))
-        return (today - timedelta(hours=hours_ago)).replace(second=0, microsecond=0)
+    raise ValueError()
 
+
+def _parse_hours(today, date_str):
     # Handle "last hour"
     if date_str == "last hour":
-        return (today - timedelta(hours=1)).replace(second=0, microsecond=0)
+        date_str = 'last 1 hour'
 
-    # Handle times like:
-    #   two hours, five hours...nine hours
-    #   last two hours, last five hours...last nine hours
-    #   two hours ago, five hours ago...nine hours ago
-    match = re.match(r'(last\s+)?(\w+)\s+hours?(\s+ago)?', date_str)
+    # <n> hours, <n> hours ago, last <n> hours
+    match = re.match(r'(last\s+)?(\d+)\s+hours?(\s+ago)?', date_str)
+
+    # two hours, five hours...nine hours
+    # last two hours, last five hours...last nine hours
+    # two hours ago, five hours ago...nine hours ago
     if not match:
-        # As above but with two words for hours like "fourty one hours ago"
+        match = re.match(r'(last\s+)?(\w+)\s+hours?(\s+ago)?', date_str)
+
+    # As above but with two words for hours like "fourty one hours ago"
+    if not match:
         match = re.match(r'(last\s+)?(\w+\s+\w+)\s+hours?(\s+ago)?', date_str)
-    if match:
-        hours_ago = text2int.parse(match.group(2))
-        return (today - timedelta(hours=hours_ago)).replace(second=0, microsecond=0)
 
-    # Handle:
-    #   <n> minutes
-    #   last <n> minutes
-    #   <n> minutes ago
-    match = re.match(r'(last\s+)?(\d+)\s+minutes?(\s+ago)?', date_str)
     if match:
-        minutes_ago = int(match.group(2))
-        return (today - timedelta(minutes=minutes_ago)).replace(second=0,
-                                                                microsecond=0)
+        hours = text2int.parse(match.group(2))
+        return (today - timedelta(hours=hours)).replace(second=0, microsecond=0)
 
+    raise ValueError()
+
+
+def _parse_minutes(today, date_str):
     # Handle "last minute"
     if date_str == "last minute":
-        return (today - timedelta(minutes=1)).replace(second=0, microsecond=0)
+        date_str = 'last 1 minute'
 
-    # Handle:
-    #   one minute, two minutes...nine minutes
-    #   last one minute, last two minutes, last nine minutes
-    #   one minute ago, two minutes ago...nine minutes ago
+    # <n> minutes
+    # last <n> minutes
+    # <n> minutes ago
+    match = re.match(r'(last\s+)?(\d+)\s+minutes?(\s+ago)?', date_str)
+
+    # one minute, two minutes...nine minutes
+    # last one minute, last two minutes, last nine minutes
+    # one minute ago, two minutes ago...nine minutes ago
     match = re.match(r'(last\s+)?(\w+)\s+minutes?(\s+ago)?', date_str)
+
+    # As above but with two words for the minutes like "fifty seven minutes ago"
     if not match:
-        # As above but with two words for the minutes like "fifty seven minutes ago"
         match = re.match(r'(last\s+)?(\w+\s+\w+)\s+minutes?', date_str)
+
     if match:
         minutes_ago = text2int.parse(match.group(2))
         return (today - timedelta(minutes=minutes_ago)).replace(second=0,
