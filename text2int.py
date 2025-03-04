@@ -35,6 +35,11 @@ def parse(text):
         "ninety": 90
     }
 
+    try:
+        return int(text)
+    except ValueError:
+        pass
+
     # Split the input text into words
     words = text.lower().split()
 
