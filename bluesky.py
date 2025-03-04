@@ -16,6 +16,7 @@ import dateparse
 # Ignore pylint peevishness. These kinds of restrictions are what ruined many
 # python and ruby codebases.
 
+
 class BlueSky:
     '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
@@ -138,7 +139,6 @@ class BlueSky:
         post = self._client.send_post(tb)
         return post.uri
 
-
     def post_image(self, text, filename, alt):
         '''Post the given image with the given text and given alt-text'''
         img_data = self._get_image_data(filename)
@@ -207,7 +207,7 @@ class BlueSky:
                 for notif in rsp.notifications:
                     if date_limit:
                         dt = datetime.strptime(notif.record.created_at,
-                                              dateparse.BLUESKY_DATE_FORMAT)
+                                               dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             # Once we get to notifications older than the date
                             # limit, we assume the rest of the notifications are
@@ -352,7 +352,6 @@ class BlueSky:
 
     def _login(self):
         self._client.login(self._handle, self._password)
-        #self._client.login(self._handle, 'c')
 
     @staticmethod
     def _ljust(text, length, padding=' '):
