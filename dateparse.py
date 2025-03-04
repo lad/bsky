@@ -33,25 +33,16 @@ def _parse(date_str):
     today = datetime.now()
     date_str = date_str.lower().strip()
 
-    try:
-        return _parse_today_yesterday_tomorrow(today, date_str)
-    except ValueError:
-        pass
+    parse_fns = [_parse_today_yesterday_tomorrow,
+                 _parse_days,
+                 _parse_hours,
+                 _parse_minutes]
 
-    try:
-        return _parse_days(today, date_str)
-    except ValueError:
-        pass
-
-    try:
-        return _parse_hours(today, date_str)
-    except ValueError:
-        pass
-
-    try:
-        return _parse_minutes(today, date_str)
-    except ValueError:
-        pass
+    for fn in parse_fns:
+        try:
+            return fn(today, date_str)
+        except ValueError:
+            pass
 
     raise ValueError("Unsupported informal date format")
 
@@ -126,22 +117,22 @@ def _parse_hours(today, date_str):
 
 def _parse_minutes(today, date_str):
     # Handle "last minute"
-    if date_str == "last minute":
+    if date_str == "last minute" or date_str == "last min":
         date_str = 'last 1 minute'
 
     # <n> minutes
     # last <n> minutes
     # <n> minutes ago
-    match = re.match(r'(last\s+)?(\d+)\s+minutes?(\s+ago)?', date_str)
+    match = re.match(r'(last\s+)?(\d+)\s+min(ute)?s?(\s+ago)?', date_str)
 
     # one minute, two minutes...nine minutes
     # last one minute, last two minutes, last nine minutes
     # one minute ago, two minutes ago...nine minutes ago
-    match = re.match(r'(last\s+)?(\w+)\s+minutes?(\s+ago)?', date_str)
+    match = re.match(r'(last\s+)?(\w+)\s+min(ute)?s?(\s+ago)?', date_str)
 
     # As above but with two words for the minutes like "fifty seven minutes ago"
     if not match:
-        match = re.match(r'(last\s+)?(\w+\s+\w+)\s+minutes?', date_str)
+        match = re.match(r'(last\s+)?(\w+\s+\w+)\s+min(ute)?s?', date_str)
 
     if match:
         minutes_ago = text2int.parse(match.group(2))
