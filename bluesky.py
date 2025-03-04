@@ -10,7 +10,7 @@ import atproto_client
 import wcwidth
 from wand.image import Image
 
-import date
+import dateparse
 
 
 class BlueSky:
@@ -31,7 +31,7 @@ class BlueSky:
                 "limit": 100,
                 }
         cursor = None
-        date_limit = date.parse(date_limit_str) if date_limit_str else None
+        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -51,7 +51,7 @@ class BlueSky:
 
                     if date_limit:
                         dt = datetime.strptime(like.created_at,
-                                               date.BLUESKY_DATE_FORMAT)
+                                               dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             return
 
@@ -192,7 +192,7 @@ class BlueSky:
     def get_notifications(self, date_limit_str=None, count_limit=None,
                           mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''
-        date_limit = date.parse(date_limit_str) if date_limit_str else None
+        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         count = 0
         num_failures = 0
         cursor = None
@@ -204,7 +204,7 @@ class BlueSky:
                 for notif in rsp.notifications:
                     if date_limit:
                         dt = datetime.strptime(notif.record.created_at,
-                                            date.BLUESKY_DATE_FORMAT)
+                                              dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             # Once we get to notifications older than the date
                             # limit, we assume the rest of the notifications are
@@ -245,7 +245,7 @@ class BlueSky:
         params = { 'q': term,
                    'limit': 100,
                    'sort': sort_order }
-        date_limit = date.parse(date_limit_str) if date_limit_str else None
+        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         if author:
             params['author'] = author
         if date_limit:
@@ -368,7 +368,7 @@ class BlueSky:
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
                   reply=False, original=False):
         '''A generator to return an entry for posts for the given user handle'''
-        date_limit = date.parse(date_limit_str) if date_limit_str else None
+        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         cursor = None
         actor = handle or self._handle
         count = 0
@@ -380,7 +380,7 @@ class BlueSky:
                 for view in feed.feed:
                     if date_limit:
                         dt = datetime.strptime(view.post.record.created_at,
-                                               date.BLUESKY_DATE_FORMAT)
+                                               dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             return
                     if count_limit:

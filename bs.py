@@ -8,7 +8,7 @@ import argparse
 import configparser
 
 import bluesky
-import date
+import dateparse
 import shared
 
 
@@ -82,7 +82,7 @@ class BlueSkyCommandLine:
 
     def profile_cmd(self, handle):
         '''Print the profile entry of the given user handle'''
-        profile = self.bs.get_profile(handle or self.handle)
+        profile = self.bs.get_profile((handle or self.handle).lstrip('@'))
         self.print_profile(profile, True)
 
     def notifications_cmd(self, since, show_all, count_limit, mark):
@@ -182,7 +182,7 @@ class BlueSkyCommandLine:
         # f"{like.post.author.display_name} ({followers} followers)\n"
         print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
         if like.created_at:
-            print(f"Like Date: {date.humanise_date_string(like.created_at)}")
+            print(f"Like Date: {dateparse.humanise_date_string(like.created_at)}")
         print(f"Text: {like.post.record.text}")
         print('-----')
 
@@ -192,7 +192,7 @@ class BlueSkyCommandLine:
         if full:
             self.print_profile_link(profile)
             print(f"DID: {profile.did}")
-            print(f"Created at: {date.humanise_date_string(profile.created_at)}")
+            print(f"Created at: {dateparse.humanise_date_string(profile.created_at)}")
             if profile.description:
                 print("Description:  ",
                       profile.description.replace("\n", "\n              "), "\n",
@@ -222,7 +222,7 @@ class BlueSkyCommandLine:
         if followers:
             is_follower = post.author.handle in followers
             print(f"Follower: {is_follower}")
-        print(f"Date: {date.humanise_date_string(post.record.created_at)}")
+        print(f"Date: {dateparse.humanise_date_string(post.record.created_at)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
         if post.reply:
@@ -236,7 +236,7 @@ class BlueSkyCommandLine:
         self.print_profile_name(notif.author)
         self.print_profile_link(notif.author)
         print(f"Reason: {notif.reason}")
-        print(f"Date: {date.humanise_date_string(notif.indexed_at)}")
+        print(f"Date: {dateparse.humanise_date_string(notif.indexed_at)}")
         if post:
             print(f"Post: {post.value.text}")
         if hasattr(notif.record, 'text'):

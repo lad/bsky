@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''Parse informal date strings into datetime objects'''
-import dateutil
+from dateutil.parser import parse as dateutil_parser
 from datetime import datetime, timedelta
 import tzlocal
 import re
@@ -12,17 +12,16 @@ BLUESKY_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
 LOCAL_TIMEZONE = tzlocal.get_localzone()
 
 
-@staticmethod
 def parse(date_limit_str):
     try:
         # Parse the date string
-        parsed_date = dateutil.parser.parse(date_limit_str)
+        parsed_date = dateutil_parser(date_limit_str)
         dt = parsed_date
-    except ValueError as e:
+    except ValueError:
         dt = _parse(date_limit_str).replace(tzinfo=LOCAL_TIMEZONE)
 
     if not dt:
-        print(f"Error parsing date: {e}")
+        print(f"Error parsing date: {date_limit_str}")
         return None
 
     return dt.replace(tzinfo=LOCAL_TIMEZONE)
@@ -128,7 +127,6 @@ def _parse(date_str):
     raise ValueError("Unsupported informal date format")
 
 
-@staticmethod
 def humanise_date_string(date_string):
     '''Convert the given BlueSky date string into something more readable
         for human consumption'''
