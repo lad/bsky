@@ -244,9 +244,9 @@ class BlueSky:
 
     def search(self, term, author, date_limit_str, sort_order, is_follow, is_follower):
         '''A generator to yield posts that match the given search terms'''
-        params = { 'q': term,
-                   'limit': 100,
-                   'sort': sort_order }
+        params = {'q': term,
+                  'limit': 100,
+                  'sort': sort_order}
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         if author:
             params['author'] = author

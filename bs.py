@@ -27,9 +27,9 @@ class BlueSkyCommandLine:
         shared.VERBOSE = self.ns.verbose
         shared.DEBUG = self.ns.debug
 
-        config = ( self.ns.config or
-                   os.environ.get('DBCONFIG') or
-                   BlueSkyCommandLine.CONFIG_PATH_DEFAULT )
+        config = (self.ns.config or
+                  os.environ.get('DBCONFIG') or
+                  BlueSkyCommandLine.CONFIG_PATH_DEFAULT)
         self.handle, self._password = BlueSkyCommandLine._get_config(config)
         self.bs = bluesky.BlueSky(self.handle, self._password)
 
