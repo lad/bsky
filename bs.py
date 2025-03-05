@@ -6,6 +6,7 @@ import os
 import sys
 import argparse
 import configparser
+import wcwidth
 
 import bluesky
 import dateparse
@@ -113,11 +114,11 @@ class BlueSkyCommandLine:
         count = self.bs.get_unread_notifications_count()
         print(f"Unread: {count}")
 
-    def likes_cmd(self, since, show_date):
+    def likes_cmd(self, since, show_date, short=False):
         '''Print details of the likes submitted by the currently authenticated user,
            optionally limited by the supplied date.'''
         for like in self.bs.get_likes(since, show_date):
-            self.print_like(like)
+            self.print_like(like, short)
 
     def reposters_cmd(self, handle, since, full):
         '''Print the user handles of the users that have reposted posts by the
@@ -145,17 +146,27 @@ class BlueSkyCommandLine:
                                                        is_follow, is_follower):
             self.print_post_entry(post, follows=follows, followers=followers)
 
-    def print_like(self, like):
+    def print_like(self, like, short):
         '''Print details of the given like structure'''
-        self.print_profile_name(like.post.author)
-        self.print_profile_link(like.post.author)
-        # author_profile = self.profile(handle)
-        # followers = author_profile.followers_count
-        # f"{like.post.author.display_name} ({followers} followers)\n"
-        print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
-        if like.created_at:
-            print(f"Like Date: {dateparse.humanise_date_string(like.created_at)}")
-        print(f"Text: {like.post.record.text}")
+        if short:
+            self.print_profile_name(like.post.author)
+            print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
+            text = like.post.record.text.replace("\n", " ")
+
+            if wcwidth.wcswidth(text) < 77:
+                print(text)
+            else:
+                print(f"{text[:77]}...")
+        else:
+            self.print_profile_name(like.post.author)
+            self.print_profile_link(like.post.author)
+            # author_profile = self.profile(handle)
+            # followers = author_profile.followers_count
+            # f"{like.post.author.display_name} ({followers} followers)\n"
+            print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
+            if like.created_at:
+                print(f"Like Date: {dateparse.humanise_date_string(like.created_at)}")
+            print(f"Text: {like.post.record.text}")
         print('-----')
 
     def print_profile(self, profile, full=False):
@@ -421,8 +432,10 @@ class BlueSkyCommandLine:
                             help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--date', '-d', action='store_true',
                             help='Show date of each like (more costly)')
+        parser.add_argument('--short',  action='store_true',
+                            help='Show a short format output')
         parser.set_defaults(func='likes_cmd',
-                            func_args=lambda ns: [ns.since, ns.date])
+                            func_args=lambda ns: [ns.since, ns.date, ns.short])
 
     @staticmethod
     def add_parser_search(parent):

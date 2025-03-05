@@ -7,7 +7,6 @@ from datetime import datetime
 import atproto
 import atproto_core
 import atproto_client
-import wcwidth
 from wand.image import Image
 
 import dateparse
@@ -352,10 +351,6 @@ class BlueSky:
 
     def _login(self):
         self._client.login(self._handle, self._password)
-
-    @staticmethod
-    def _ljust(text, length, padding=' '):
-        return text + padding * max(0, (length - wcwidth.wcswidth(text)))
 
     @staticmethod
     def _print_at_protocol_error(ex):
