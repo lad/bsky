@@ -18,19 +18,6 @@ import dateparse
 # python and ruby codebases.
 
 
-@staticmethod
-def normalize_handle_value(self, handle):
-    '''Normalize the handle value. This assumes its wrapping a method from the
-       BlueSky class'''
-    hand = handle or self.handle
-    if hand.startswith(self.PROFILE_URL):
-        hand = hand.split('/')[-1]
-    elif '.' not in hand:
-        hand = (hand + '.bsky.social').lstrip('@')
-
-    return hand
-
-
 def normalize_handle(func):
     '''Decorator to normalize a handle argument'''
     @functools.wraps(func)
@@ -41,7 +28,7 @@ def normalize_handle(func):
 
         # Assume we have a 'handle' argument and replace with its normalized value
         handle = bound_args.arguments['handle']
-        bound_args.arguments['handle'] = normalize_handle_value(self, handle)
+        bound_args.arguments['handle'] = self.normalize_handle_value(handle)
 
         # Call the original wrapped method
         return func(*bound_args.args, **bound_args.kwargs)
@@ -60,7 +47,7 @@ class BlueSky:
         self.client = atproto.Client()
         self._login()
 
-    def get_likes(self, date_limit_str, get_date):
+    def get_likes(self, date_limit_str, count_limit=None, get_date=False):
         '''A generator to yield posts that the given user handle has liked'''
         params = {
                 "actor": self.handle,
@@ -69,6 +56,7 @@ class BlueSky:
         cursor = None
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         num_failures = 0
+        count = 0
 
         while num_failures < self.FAILURE_LIMIT:
             params['cursor'] = cursor
@@ -89,6 +77,11 @@ class BlueSky:
                         dt = datetime.strptime(like.created_at,
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
+                            return
+
+                    if count_limit:
+                        count += 1
+                        if count > count_limit:
                             return
 
                     yield like
@@ -459,3 +452,14 @@ class BlueSky:
                 count += 1
 
         return img_data
+
+    def normalize_handle_value(self, handle):
+        '''Normalize the handle value. This assumes its wrapping a method from the
+        BlueSky class'''
+        hand = handle or self.handle
+        if hand.startswith(self.PROFILE_URL):
+            hand = hand.split('/')[-1]
+        elif '.' not in hand:
+            hand = (hand + '.bsky.social').lstrip('@')
+
+        return hand

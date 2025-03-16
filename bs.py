@@ -114,10 +114,12 @@ class BlueSkyCommandLine:
         count = self.bs.get_unread_notifications_count()
         print(f"Unread: {count}")
 
-    def likes_cmd(self, since, show_date, short=False):
+    def likes_cmd(self, since, count_limit, show_date, short=False):
         '''Print details of the likes submitted by the currently authenticated user,
            optionally limited by the supplied date.'''
-        for like in self.bs.get_likes(since, show_date):
+        for like in self.bs.get_likes(since,
+                                      count_limit=count_limit,
+                                      get_date=show_date):
             self.print_like(like, short)
 
     def reposters_cmd(self, handle, since, full):
@@ -433,12 +435,15 @@ class BlueSkyCommandLine:
         parser = parent.add_parser('likes', help="show likes for authenticated user")
         parser.add_argument('--since', '-s', action='store',
                             help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', action='store', type=int,
+                            help='Max number of notifications to show')
         parser.add_argument('--date', '-d', action='store_true',
                             help='Show date of each like (more costly)')
         parser.add_argument('--short',  action='store_true',
                             help='Show a short format output')
         parser.set_defaults(func='likes_cmd',
-                            func_args=lambda ns: [ns.since, ns.date, ns.short])
+                            func_args=lambda ns: [ns.since, ns.count,
+                                                  ns.date, ns.short])
 
     @staticmethod
     def add_parser_search(parent):
