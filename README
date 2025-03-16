@@ -4,7 +4,7 @@ Written in python using the atproto sdk
 
 
 usage: bs.py [-h] [--verbose] [--debug] [--config CONFIG]
-             {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,search} ...
+             {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,rich,search} ...
 
 options:
   -h, --help            show this help message and exit
@@ -13,7 +13,7 @@ options:
   --config, -c CONFIG   config file or $BSCONFIG or $PWD/.config
 
 Sub Commands:
-  {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,search}
+  {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,rich,search}
     delete (del)        delete BlueSky post
     did                 show a user's did
     followers           show the given user's followers
@@ -29,5 +29,6 @@ Sub Commands:
     posts               show BlueSky posts
     profile             show user's profile
     reposters           show repost users
+    rich                post text to BlueSky
     search              show posts for a given search string (Lucene search
                         strings supported)
