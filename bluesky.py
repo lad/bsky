@@ -3,6 +3,7 @@
 # pylint: disable=W0511
 
 from datetime import datetime
+import functools
 import inspect
 
 import atproto
@@ -32,6 +33,7 @@ def normalize_handle_value(self, handle):
 
 def normalize_handle(func):
     '''Decorator to normalize a handle argument'''
+    @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         # Get method signature and bind the given arguments to it
         sig = inspect.signature(func)
