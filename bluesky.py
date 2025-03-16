@@ -99,7 +99,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     @normalize_handle
     def get_mutuals(self, handle, flag):
@@ -215,7 +215,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
             rsp = None
 
         return rsp
@@ -271,7 +271,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
         if mark_read:
             seen_at = self.client.get_current_time_iso()
@@ -324,7 +324,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     @normalize_handle
     def profile_did(self, handle):
@@ -363,7 +363,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     @normalize_handle
     def followers(self, handle):
@@ -385,7 +385,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     def _login(self):
         self.client.login(self.handle, self._password)
@@ -394,10 +394,10 @@ class BlueSky:
         self.logger.error(type(ex))
         if 'response' in dir(ex):
             if 'status_code' in dir(ex.response):
-                self.logger.error(f"Status: {ex.response.status_code}")
+                self.logger.error("Status: %s", str(ex.response.status_code))
             if 'content' in dir(ex.response):
                 if 'message' in dir(ex.response.content):
-                    self.logger.error(f"Message: {ex.response.content.message}")
+                    self.logger.error("Message: %s", ex.response.content.message)
 
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
@@ -440,7 +440,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     def normalize_handle_value(self, handle):
         '''Normalize the handle value. This assumes its wrapping a method from the
@@ -459,18 +459,18 @@ class BlueSky:
         scaler = 0.75
         count = 0
 
-        self.logger.info(f"Reading image file {filename}")
+        self.logger.info("Reading image file %s", filename)
         with Image(filename=filename) as img:
             while count < 100:  # need some limit, surely 100 is enough
                 img_data = img.make_blob()
                 siz = len(img_data)
-                self.logger.info(f"Image size is {siz}")
+                self.logger.info("Image size is %d", siz)
                 if siz < BlueSky.BLUESKY_MAX_IMAGE_SIZE:
                     break
 
                 width = int(img.width * scaler)
                 height = int(img.height * scaler)
-                self.logger.info(f"Resizing image file to {width}x{height}")
+                self.logger.info("Resizing image file to %dx%d", width, height)
                 img.resize(width, height)
                 count += 1
 
