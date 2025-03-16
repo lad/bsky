@@ -88,7 +88,7 @@ class BlueSkyCommandLine:
 
     def profile_cmd(self, handle):
         '''Print the profile entry of the given user handle'''
-        profile = self.bs.get_profile((handle or self.handle).lstrip('@'))
+        profile = self.bs.get_profile(handle)
         self.print_profile(profile, True)
 
     def notifications_cmd(self, since, show_all, count_limit, mark):
@@ -191,9 +191,12 @@ class BlueSkyCommandLine:
         '''Print the http link to the profile of the given user'''
         print(f"Profile Link: https://bsky.app/profile/{author.handle}")
 
-    def print_profile_did(self, handle):
+    def did_cmd(self, handle):
         '''Print the DID of the given user'''
-        print(self.bs.profile_did(handle or self.handle))
+        hand = handle or self.handle
+        if '.' not in hand:
+            hand += '.bsky.social'
+        print(self.bs.profile_did(hand))
 
     def print_post_entry(self, post, follows=None, followers=None):
         '''Print details of the given post structure'''
@@ -274,7 +277,7 @@ class BlueSkyCommandLine:
         """Add a sub-parser for the 'did' command"""
         parser = parent.add_parser('did', help="show a user's did")
         parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.set_defaults(func='show_profile_did',
+        parser.set_defaults(func='did_cmd',
                             func_args=lambda ns: [ns.handle])
 
     @staticmethod
