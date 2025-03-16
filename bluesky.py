@@ -5,6 +5,7 @@
 from datetime import datetime
 import functools
 import inspect
+import logging
 
 import atproto
 import atproto_core
@@ -44,6 +45,7 @@ class BlueSky:
     def __init__(self, handle, password):
         self.handle = handle
         self._password = password
+        self.logger = logging.getLogger(__name__)
         self.client = atproto.Client()
         self._login()
 
@@ -77,16 +79,19 @@ class BlueSky:
                         dt = datetime.strptime(like.created_at,
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
+                            self.logger.info('Date limit reached')
                             return
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
+                            self.logger.info('Count limit reached')
                             return
 
                     yield like
 
                 if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
                     break
@@ -94,8 +99,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def get_mutuals(self, handle, flag):
@@ -175,6 +179,7 @@ class BlueSky:
         aspect_ratio = atproto.models.AppBskyEmbedDefs.AspectRatio(
                             height=100, width=100)
 
+        self.logger.info('Posting image...')
         rsp = self.client.send_image(text=text,
                                      image=img_data,
                                      image_alt=alt or '',
@@ -210,8 +215,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
             rsp = None
 
         return rsp
@@ -240,11 +244,13 @@ class BlueSky:
                             # Once we get to notifications older than the date
                             # limit, we assume the rest of the notifications are
                             # older, we're done
+                            self.logger.info('Date limit reached')
                             return
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
+                            self.logger.info('Count limit reached')
                             return
 
                     if notif.reason == 'reply':
@@ -257,6 +263,7 @@ class BlueSky:
                     yield notif, post
 
                 if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
                     break
@@ -264,8 +271,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
         if mark_read:
             seen_at = self.client.get_current_time_iso()
@@ -310,6 +316,7 @@ class BlueSky:
                     yield (post, follows, followers)
 
                 if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
                     break
@@ -317,8 +324,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def profile_did(self, handle):
@@ -349,6 +355,7 @@ class BlueSky:
                 rsp = self.client.get_follows(handle, cursor=cursor)
                 yield from rsp.follows
                 if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
                     break
@@ -356,8 +363,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def followers(self, handle):
@@ -371,6 +377,7 @@ class BlueSky:
                 rsp = self.client.get_followers(handle, cursor=cursor)
                 yield from rsp.followers
                 if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
                     break
@@ -378,21 +385,19 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def _login(self):
         self.client.login(self.handle, self._password)
 
-    @staticmethod
-    def _print_at_protocol_error(ex):
-        print(type(ex))
+    def _print_at_protocol_error(self, ex):
+        self.logger.error(type(ex))
         if 'response' in dir(ex):
             if 'status_code' in dir(ex.response):
-                print(f"Status: {ex.response.status_code}")
+                self.logger.error(f"Status: {ex.response.status_code}")
             if 'content' in dir(ex.response):
                 if 'message' in dir(ex.response.content):
-                    print(f"Message: {ex.response.content.message}")
+                    self.logger.error(f"Message: {ex.response.content.message}")
 
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
@@ -411,10 +416,12 @@ class BlueSky:
                         dt = datetime.strptime(view.post.record.created_at,
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
+                            self.logger.info('Date limit reached')
                             return
                     if count_limit:
                         count += 1
                         if count > count_limit:
+                            self.logger.info('Count limit reached')
                             return
                     if reply and not view.reply:
                         continue
@@ -425,6 +432,7 @@ class BlueSky:
                     yield view.post
 
                 if feed.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
                     cursor = feed.cursor
                 else:
                     break
@@ -432,26 +440,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            # TODO: Convert to verbose log
-            print(f"Giving up, more than {self.FAILURE_LIMIT} failures")
-
-    @staticmethod
-    def _get_image_data(filename):
-        '''Read the image at the given filename and downsize it to under the
-           max size permissible for blue sky'''
-        scaler = 0.75
-        count = 0
-
-        with Image(filename=filename) as img:
-            while count < 100:  # need some limit, surely 100 is enough
-                img_data = img.make_blob()
-                if len(img_data) < BlueSky.BLUESKY_MAX_IMAGE_SIZE:
-                    break
-
-                img.resize(int(img.width * scaler), int(img.height * scaler))
-                count += 1
-
-        return img_data
+            self.logger.error(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def normalize_handle_value(self, handle):
         '''Normalize the handle value. This assumes its wrapping a method from the
@@ -463,3 +452,26 @@ class BlueSky:
             hand = (hand + '.bsky.social').lstrip('@')
 
         return hand
+
+    def _get_image_data(self, filename):
+        '''Read the image at the given filename and downsize it to under the
+           max size permissible for blue sky'''
+        scaler = 0.75
+        count = 0
+
+        self.logger.info(f"Reading image file {filename}")
+        with Image(filename=filename) as img:
+            while count < 100:  # need some limit, surely 100 is enough
+                img_data = img.make_blob()
+                siz = len(img_data)
+                self.logger.info(f"Image size is {siz}")
+                if siz < BlueSky.BLUESKY_MAX_IMAGE_SIZE:
+                    break
+
+                width = int(img.width * scaler)
+                height = int(img.height * scaler)
+                self.logger.info(f"Resizing image file to {width}x{height}")
+                img.resize(width, height)
+                count += 1
+
+        return img_data

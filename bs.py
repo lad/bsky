@@ -6,6 +6,8 @@ import os
 import sys
 import argparse
 import configparser
+import logging
+
 import wcwidth
 
 import bluesky
@@ -24,14 +26,30 @@ class BlueSkyCommandLine:
     def __init__(self, args):
         '''Command Line Main Entry Point'''
         self.ns = self.create_parser().parse_args(args)
-        shared.VERBOSE = self.ns.verbose
         shared.DEBUG = self.ns.debug
+        self.logger = self._configure_logging(self.ns)
 
         config = (self.ns.config or
                   os.environ.get('DBCONFIG') or
                   BlueSkyCommandLine.CONFIG_PATH_DEFAULT)
         self.handle, self._password = BlueSkyCommandLine._get_config(config)
         self.bs = bluesky.BlueSky(self.handle, self._password)
+
+    def _configure_logging(self, ns):
+        if ns.critical:
+            level = logging.CRITICAL
+        elif ns.error:
+            level = logging.ERROR
+        elif ns.info:
+            level = logging.INFO
+        elif ns.debug or ns.verbose:
+            level = logging.DEBUG
+        else:
+            # Defaut to warning if no choice given
+            level = logging.WARNING
+
+        logging.basicConfig(level=level)
+        return logging.getLogger(__name__)
 
     def run(self):
         '''Run the function for the command line given to the constructor'''
@@ -245,8 +263,18 @@ class BlueSkyCommandLine:
         main_parser = argparse.ArgumentParser()
 
         # Global arguments
-        main_parser.add_argument('--verbose', '-v', action='store_true')
-        main_parser.add_argument('--debug', '-d', action='store_true')
+        main_parser.add_argument('--critical', action='store_true',
+                                 help='Set log level to CRITICAL')
+        main_parser.add_argument('--error', action='store_true',
+                                 help='Set log level to ERROR')
+        main_parser.add_argument('--warning', action='store_true',
+                                 help='Set log level to WARNING')
+        main_parser.add_argument('--info', action='store_true',
+                                 help='Set log level to INFO')
+        main_parser.add_argument('--debug', '-d', action='store_true',
+                                 help='Set log level to DEBUG')
+        main_parser.add_argument('--verbose', '-v', action='store_true',
+                                 help='Synonym for --debug')
         main_parser.add_argument('--config', '-c', dest='config', action='store',
                                  help='config file or $BSCONFIG or $PWD/.config')
 
