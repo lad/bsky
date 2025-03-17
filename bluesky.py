@@ -239,11 +239,6 @@ class BlueSky:
                         if dt < date_limit:
                             self.logger.info('Date limit reached')
                             return
-                    if count_limit:
-                        count += 1
-                        if count > count_limit:
-                            self.logger.info('Count limit reached')
-                            return
                     if reply and not view.reply:
                         continue
                     if original and view.reply:
@@ -251,6 +246,14 @@ class BlueSky:
 
                     view.post.reply = view.reply
                     yield view.post
+
+                    # Make sure to only check count for posts supplied back to the
+                    # caller
+                    if count_limit:
+                        count += 1
+                        if count > count_limit:
+                            self.logger.info('Count limit reached')
+                            return
 
                 if feed.cursor:
                     self.logger.info('Cursor found, retrieving next page...')
