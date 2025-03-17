@@ -266,6 +266,27 @@ class BlueSky:
         else:
             self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
+    def get_post_likes(self, uri):
+        '''A generator to yield details of the likes for a given post uri'''
+        cursor = None
+        num_failures = 0
+
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                rsp = self.client.get_likes(uri, cursor=cursor)
+
+                yield from rsp.likes
+                if rsp.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
+                    cursor = rsp.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
     def get_unread_notifications_count(self):
         '''Return a count of the unread notifications for the authenticated user'''
         return self.client.app.bsky.notification.get_unread_count()

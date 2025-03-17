@@ -87,7 +87,7 @@ class BlueSkyCommandLine:
         if show_uri:
             print(uri)
 
-    def postimage_cmd(self, text, filename, alt, show_uri):
+    def post_image_cmd(self, text, filename, alt, show_uri):
         '''Post the given image with the given text and given alt-text'''
         uri = self.bs.post_image(text, filename, alt)
         if show_uri:
@@ -98,6 +98,11 @@ class BlueSkyCommandLine:
            supplied'''
         for post in self.bs.get_posts(handle, since, count, reply, original):
             self.print_post_entry(post)
+
+    def post_likes_cmd(self, uri, full):
+        '''Print the like details of the given post'''
+        for like in self.bs.get_post_likes(uri):
+            self.print_like_entry(like, full)
 
     def delete_cmd(self, uri):
         '''Delete the post at the given uri'''
@@ -236,6 +241,10 @@ class BlueSkyCommandLine:
         print(f"Likes: {post.like_count}")
         print(f"Text: {post.record.text}")
         print('-----')
+
+    def print_like_entry(self, like, full=False):
+        '''Print details of the given post like'''
+        self.print_profile(like.actor, full)
 
     def print_notification_entry(self, notif, post):
         '''Print details of the given notification structure'''
@@ -401,9 +410,20 @@ class BlueSkyCommandLine:
         parser.add_argument('--alt', '-a', action='store', help='Image alt text')
         parser.add_argument('--uri', '-u', action='store_true',
                             help='Show URI of post')
-        parser.set_defaults(func='postimage_cmd',
+        parser.set_defaults(func='post_image_cmd',
                             func_args=lambda ns: [ns.text, ns.filename,
                                                   ns.alt, ns.uri])
+
+    @staticmethod
+    def add_parser_post_likes(parent):
+        """Add a sub-parser for the 'posts_likes' command"""
+        parser = parent.add_parser('postlikes', aliases=['pl'],
+                                   help='Show like details of a particular post')
+        parser.add_argument('uri', action='store', help='post URI')
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+        parser.set_defaults(func='post_likes_cmd',
+                            func_args=lambda ns: [ns.uri, ns.full])
 
     @staticmethod
     def add_parser_delete(parent):
