@@ -300,11 +300,11 @@ class BlueSkyCommandLine:
         # Global arguments
         main_parser.add_argument('--critical', action='store_true',
                                  help='Set log level to CRITICAL')
-        main_parser.add_argument('--error', action='store_true',
+        main_parser.add_argument('--error', '-e', action='store_true',
                                  help='Set log level to ERROR')
-        main_parser.add_argument('--warning', action='store_true',
+        main_parser.add_argument('--warning', '-w', action='store_true',
                                  help='Set log level to WARNING')
-        main_parser.add_argument('--info', action='store_true',
+        main_parser.add_argument('--info', '-i', action='store_true',
                                  help='Set log level to INFO')
         main_parser.add_argument('--debug', '-d', action='store_true',
                                  help='Set log level to DEBUG')
