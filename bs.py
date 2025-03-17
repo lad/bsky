@@ -94,8 +94,8 @@ class BlueSkyCommandLine:
             print(uri)
 
     def posts_cmd(self, handle, since, count, reply, original):
-        '''Print the posts by the given user handle limited by the date and count
-           supplied'''
+        '''Print the posts by the given user handle limited by the date count
+           supplied, original or replies'''
         for post in self.bs.get_posts(handle, since, count, reply, original):
             self.print_post_entry(post)
 
@@ -103,6 +103,32 @@ class BlueSkyCommandLine:
         '''Print the like details of the given post'''
         for like in self.bs.get_post_likes(uri):
             self.print_like_entry(like, full)
+
+    def posts_likes_cmd(self, handle, since, count, reply, original, full):
+        '''Print the like details of the posts found by the given parameters'''
+        for post in self.bs.get_posts(handle, since, count, reply, original):
+            for like in self.bs.get_post_likes(post.uri):
+                self.print_like_entry(like, full)
+
+    def most_likes_cmd(self, handle, since, count, reply, original, full):
+        '''Print details of who most likes the posts found by the given parameters'''
+        likes = {}
+        for post in self.bs.get_posts(handle, since, count, reply, original):
+            for like in self.bs.get_post_likes(post.uri):
+                if like.actor.did in likes:
+                    count, profile = likes[like.actor.did]
+                    count += 1
+                    likes[like.actor.did] = count, profile
+                else:
+                    likes[like.actor.did] = 1, like.actor
+        for value in sorted(likes.values(), key=lambda v: v[0], reverse=True):
+            if full:
+                count, profile = value
+                self.print_profile(profile, full)
+                print(count)
+            else:
+                count, profile = value
+                print(f"{count} {profile.handle} ({profile.display_name})")
 
     def delete_cmd(self, uri):
         '''Delete the post at the given uri'''
@@ -424,6 +450,50 @@ class BlueSkyCommandLine:
                             help='Show full details of each user who likes the post')
         parser.set_defaults(func='post_likes_cmd',
                             func_args=lambda ns: [ns.uri, ns.full])
+
+    @staticmethod
+    def add_parser_posts_likes(parent):
+        """Add a sub-parser for the 'postslikes' command"""
+        parser = parent.add_parser('postslikes', aliases=['psl'],
+                                   help='Show like details of the found posts')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', type=int, action='store',
+                            help='Count of posts to display')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
+        parser.set_defaults(func='posts_likes_cmd',
+                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
+                                                  ns.reply, ns.original, ns.full])
+
+    @staticmethod
+    def add_parser_most_likes(parent):
+        """Add a sub-parser for the 'mostlikes' command"""
+        parser = parent.add_parser('mostlikes', aliases=['ml'],
+                        help='Find users with the most likes for the given posts')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', type=int, action='store',
+                            help='Count of posts to display')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
+        parser.set_defaults(func='most_likes_cmd',
+                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
+                                                  ns.reply, ns.original, ns.full])
 
     @staticmethod
     def add_parser_delete(parent):
