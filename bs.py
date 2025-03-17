@@ -123,9 +123,9 @@ class BlueSkyCommandLine:
                     likes[like.actor.did] = 1, like.actor
         for value in sorted(likes.values(), key=lambda v: v[0], reverse=True):
             if full:
+                print(f"Like Count: {count}")
                 count, profile = value
                 self.print_profile(profile, full)
-                print(count)
             else:
                 count, profile = value
                 print(f"{count} {profile.handle} ({profile.display_name})")
@@ -235,7 +235,7 @@ class BlueSkyCommandLine:
     @staticmethod
     def print_profile_name(author):
         '''Print the display name of the given profile'''
-        print(f"Profile: {author.handle} ({author.display_name})")
+        print(f"Profile: {author.display_name} @{author.handle}")
 
     @staticmethod
     def print_profile_link(author):
