@@ -477,8 +477,8 @@ class BlueSkyCommandLine:
     def add_parser_most_likes(parent):
         """Add a sub-parser for the 'mostlikes' command"""
         parser = parent.add_parser(
-                'mostlikes', aliases=['ml'],
-                help='Find users with the most likes for the given posts')
+                    'mostlikes', aliases=['ml'],
+                    help='Find users with the most likes for the given posts')
         parser.add_argument('--since', '-s', action='store',
                             help='Date limit (e.g. today/yesterday/3 days ago')
         parser.add_argument('--count', '-c', type=int, action='store',
