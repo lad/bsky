@@ -220,6 +220,49 @@ class BlueSky:
 
         return rsp
 
+    @normalize_handle
+    def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
+                  reply=False, original=False):
+        '''A generator to return an entry for posts for the given user handle'''
+        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
+        cursor = None
+        count = 0
+        num_failures = 0
+
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                feed = self.client.get_author_feed(actor=handle, cursor=cursor)
+                for view in feed.feed:
+                    if date_limit:
+                        dt = datetime.strptime(view.post.record.created_at,
+                                               dateparse.BLUESKY_DATE_FORMAT)
+                        if dt < date_limit:
+                            self.logger.info('Date limit reached')
+                            return
+                    if count_limit:
+                        count += 1
+                        if count > count_limit:
+                            self.logger.info('Count limit reached')
+                            return
+                    if reply and not view.reply:
+                        continue
+                    if original and view.reply:
+                        continue
+
+                    view.post.reply = view.reply
+                    yield view.post
+
+                if feed.cursor:
+                    self.logger.info('Cursor found, retrieving next page...')
+                    cursor = feed.cursor
+                else:
+                    break
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
     def get_unread_notifications_count(self):
         '''Return a count of the unread notifications for the authenticated user'''
         return self.client.app.bsky.notification.get_unread_count()
@@ -398,49 +441,6 @@ class BlueSky:
             if 'content' in dir(ex.response):
                 if 'message' in dir(ex.response.content):
                     self.logger.error("Message: %s", ex.response.content.message)
-
-    @normalize_handle
-    def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
-                  reply=False, original=False):
-        '''A generator to return an entry for posts for the given user handle'''
-        date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
-        cursor = None
-        count = 0
-        num_failures = 0
-
-        while num_failures < BlueSky.FAILURE_LIMIT:
-            try:
-                feed = self.client.get_author_feed(actor=handle, cursor=cursor)
-                for view in feed.feed:
-                    if date_limit:
-                        dt = datetime.strptime(view.post.record.created_at,
-                                               dateparse.BLUESKY_DATE_FORMAT)
-                        if dt < date_limit:
-                            self.logger.info('Date limit reached')
-                            return
-                    if count_limit:
-                        count += 1
-                        if count > count_limit:
-                            self.logger.info('Count limit reached')
-                            return
-                    if reply and not view.reply:
-                        continue
-                    if original and view.reply:
-                        continue
-
-                    view.post.reply = view.reply
-                    yield view.post
-
-                if feed.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
-                    cursor = feed.cursor
-                else:
-                    break
-            except atproto_core.exceptions.AtProtocolError as ex:
-                num_failures += 1
-                self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
     def normalize_handle_value(self, handle):
         '''Normalize the handle value. This assumes its wrapping a method from the
