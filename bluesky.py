@@ -244,16 +244,15 @@ class BlueSky:
                     if original and view.reply:
                         continue
 
-                    view.post.reply = view.reply
-                    yield view.post
-
-                    # Make sure to only check count for posts supplied back to the
-                    # caller
+                    # Apply count check after filter checks above.
                     if count_limit:
                         count += 1
                         if count > count_limit:
                             self.logger.info('Count limit reached')
                             return
+
+                    view.post.reply = view.reply
+                    yield view.post
 
                 if feed.cursor:
                     self.logger.info('Cursor found, retrieving next page...')
