@@ -7,6 +7,7 @@ import sys
 import argparse
 import configparser
 import logging
+from dataclasses import dataclass
 
 import wcwidth
 
@@ -14,9 +15,358 @@ import bluesky
 import dateparse
 import shared
 
-# pylint: disable=R0904,R0912,R0913,R0914,R0917
-# Ignore pylint peevishness. These kinds of restrictions are what ruined many
-# python and ruby codebases.
+
+@dataclass
+class PostsCommandRequest:
+    '''Encapsulate fields to represent a query about posts'''
+    handle: str
+    date_limit: str
+    count_limit: int
+    reply: bool
+    original: bool
+    full: bool = False
+
+
+@dataclass
+class SearchCommandRequest:
+    '''Encapsulate fields to represent a search query command'''
+    term: str
+    author: str
+    date_limit: str
+    sort_order: str
+    is_follow: bool
+    is_follower: bool
+
+
+class CommandLineParser:
+    '''Parser for BlueSkyCommandLine'''
+    def __init__(self, args):
+        self.args = args
+        self.main_parser = self.create_parser()
+
+    def parse_args(self):
+        '''Parse command line arguments and return namespace results'''
+        return self.main_parser.parse_args(self.args)
+
+    def create_parser(self):
+        '''Create the top level command parser and attach parsers for sub-commands'''
+        main_parser = argparse.ArgumentParser()
+
+        # Global arguments
+        main_parser.add_argument('--critical', action='store_true',
+                                 help='Set log level to CRITICAL')
+        main_parser.add_argument('--error', '-e', action='store_true',
+                                 help='Set log level to ERROR')
+        main_parser.add_argument('--warning', '-w', action='store_true',
+                                 help='Set log level to WARNING')
+        main_parser.add_argument('--info', '-i', action='store_true',
+                                 help='Set log level to INFO')
+        main_parser.add_argument('--debug', '-d', action='store_true',
+                                 help='Set log level to DEBUG')
+        main_parser.add_argument('--verbose', '-v', action='store_true',
+                                 help='Synonym for --debug')
+        main_parser.add_argument('--config', '-c', dest='config', action='store',
+                                 help='config file or $BSCONFIG or $PWD/.config')
+
+        sub_parser = main_parser.add_subparsers(title='Sub Commands')
+
+        # Get all add parser methods (.add_parser_XXXX)
+        methods = [method for method in dir(self)
+                   if callable(getattr(self, method))
+                   if method.startswith('_add_parser_')]
+
+        # Invoke these methods
+        for method in methods:
+            getattr(self, method)(sub_parser)
+
+        # wrap parser.parse_args() to make it act like one sub command is required.
+        # No required keyword for sub-parsers until py 3.7
+        def parse(args):
+            ns = main_parser.original_parse_args(args)
+            if not hasattr(ns, 'func'):
+                main_parser.print_help()
+                sys.exit(1)
+            return ns
+
+        main_parser.original_parse_args = main_parser.parse_args
+        main_parser.parse_args = parse
+        return main_parser
+
+    @staticmethod
+    def _add_parser_did(parent):
+        """Add a sub-parser for the 'did' command"""
+        parser = parent.add_parser('did', help="show a user's did")
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.set_defaults(func='did_cmd',
+                            func_args=lambda ns: [ns.handle])
+
+    @staticmethod
+    def _add_parser_follows(parent):
+        """Add a sub-parser for the 'follows' command"""
+        parser = parent.add_parser('follows', help="show who a user follows")
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show more details of each user')
+        parser.set_defaults(func='follows_cmd',
+                            func_args=lambda ns: [ns.handle, ns.full])
+
+    @staticmethod
+    def _add_parser_followers(parent):
+        """Add a sub-parser for the 'followers' command"""
+        parser = parent.add_parser('followers',
+                                   help="show the given user's followers")
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show more details of each user')
+        parser.set_defaults(func='followers_cmd',
+                            func_args=lambda ns: [ns.handle, ns.full])
+
+    @staticmethod
+    def _add_parser_mutuals(parent):
+        """Add a sub-parser for the 'mutuals' command"""
+        parser = parent.add_parser('mutuals',
+                                   help="show who follows the given user")
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--flag',
+                            choices=['both',
+                                     'follows-not-followers', 'followers-not-follows'],
+                            default='both',
+                            help="both show mutuals, follows-not-followers show "
+                                 "users that the given user follows that don't "
+                                 "follow back, followers-not-follows show users that "
+                                 "follow the given user that the user doesn't follow "
+                                 "back")
+        parser.add_argument('--full', action='store_true',
+                            help='Show more details of each user')
+        parser.set_defaults(func='mutuals_cmd',
+                            func_args=lambda ns: [ns.handle, ns.flag, ns.full])
+
+    @staticmethod
+    def _add_parser_post(parent):
+        """Add a sub-parser for the 'post' command"""
+        parser = parent.add_parser('post', help='post text to BlueSky')
+        parser.add_argument('text', action='store', help='text to post')
+        parser.add_argument('--uri', '-u', action='store_true',
+                            help='Show URI of post')
+        parser.set_defaults(func='post_cmd', func_args=lambda ns: [ns.text, ns.uri])
+
+    @staticmethod
+    def _add_parser_rich(parent):
+        """Add a sub-parser for the 'rich' command"""
+        parser = parent.add_parser('rich', help='post text to BlueSky')
+        parser.add_argument('text', action='store', help='text to post')
+        parser.add_argument('--mentions', '-m', nargs='+',
+                            help='A list of user mentions (no @ required)')
+        parser.add_argument('--uri', '-u', action='store_true',
+                            help='Show URI of post')
+        parser.set_defaults(func='rich_cmd',
+                            func_args=lambda ns: [ns.text, ns.mentions, ns.uri])
+
+    @staticmethod
+    def _add_parser_posts(parent):
+        """Add a sub-parser for the 'posts' command"""
+        parser = parent.add_parser('posts', help='show BlueSky posts')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', type=int, action='store',
+                            help='Count of posts to display')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
+        parser.set_defaults(func='posts_cmd',
+                            func_args=lambda ns: [PostsCommandRequest(ns.handle,
+                                                                      ns.since,
+                                                                      ns.count,
+                                                                      ns.reply,
+                                                                      ns.original)])
+
+    @staticmethod
+    def _add_parser_post_image(parent):
+        """Add a sub-parser for the 'posts_image' command"""
+        parser = parent.add_parser('postimage', aliases=['pi'],
+                                   help='post image to BlueSky')
+        parser.add_argument('text', action='store', help='text to post')
+        parser.add_argument('filename', action='store', help='Path to image file')
+        parser.add_argument('--alt', '-a', action='store', help='Image alt text')
+        parser.add_argument('--uri', '-u', action='store_true',
+                            help='Show URI of post')
+        parser.set_defaults(func='post_image_cmd',
+                            func_args=lambda ns: [ns.text, ns.filename,
+                                                  ns.alt, ns.uri])
+
+    @staticmethod
+    def _add_parser_post_likes(parent):
+        """Add a sub-parser for the 'posts_likes' command"""
+        parser = parent.add_parser('postlikes', aliases=['pl'],
+                                   help='Show like details of a particular post')
+        parser.add_argument('uri', action='store', help='post URI')
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+        parser.set_defaults(func='post_likes_cmd',
+                            func_args=lambda ns: [ns.uri, ns.full])
+
+    @staticmethod
+    def _add_parser_posts_likes(parent):
+        """Add a sub-parser for the 'postslikes' command"""
+        parser = parent.add_parser('postslikes', aliases=['psl'],
+                                   help='Show like details of the found posts')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', type=int, action='store',
+                            help='Count of posts to display')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
+        parser.set_defaults(func='posts_likes_cmd',
+                            func_args=lambda ns: [PostsCommandRequest(ns.handle,
+                                                                      ns.since,
+                                                                      ns.count,
+                                                                      ns.reply,
+                                                                      ns.original,
+                                                                      ns.full)])
+
+    @staticmethod
+    def _add_parser_most_likes(parent):
+        """Add a sub-parser for the 'mostlikes' command"""
+        parser = parent.add_parser(
+                    'mostlikes', aliases=['ml'],
+                    help='Find users with the most likes for the given posts')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', type=int, action='store',
+                            help='Count of posts to display')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show full details of each user who likes the post')
+
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reply', '-r', action='store_true',
+                           help='Show replies only')
+        group.add_argument('--original', '-o', action='store_true',
+                           help='Show original posts only')
+        parser.set_defaults(func='most_likes_cmd',
+                            func_args=lambda ns: [PostsCommandRequest(
+                                                    ns.handle,
+                                                    ns.since,
+                                                    ns.count,
+                                                    ns.reply,
+                                                    ns.original,
+                                                    ns.full)])
+
+    @staticmethod
+    def _add_parser_delete(parent):
+        """Add a sub-parser for the 'delete' command"""
+        parser = parent.add_parser('delete', aliases=['del'],
+                                   help='delete BlueSky post')
+        parser.add_argument('uri', action='store', help='URI to delete')
+        parser.set_defaults(func='delete_cmd', func_args=lambda ns: [ns.uri])
+
+    @staticmethod
+    def _add_parser_reposters(parent):
+        """Add a sub-parser for the 'reposters' command"""
+        parser = parent.add_parser('reposters', help='show repost users')
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--full', '-f', action='store_true',
+                            help='Show more details of each user')
+        parser.set_defaults(func='reposters_cmd',
+                            func_args=lambda ns: [ns.handle, ns.since, ns.full])
+
+    @staticmethod
+    def _add_parser_profile(parent):
+        """Add a sub-parser for the 'profile' command"""
+        parser = parent.add_parser('profile', help="show user's profile")
+        parser.add_argument('handle', nargs='?', help="user's handle")
+        parser.set_defaults(func='profile_cmd', func_args=lambda ns: [ns.handle])
+
+    @staticmethod
+    def _add_parser_notifications(parent):
+        """Add a sub-parser for the 'notifications' command"""
+        parser = parent.add_parser('notifications', aliases=['not', 'notif'],
+                                   help="show notifications for "
+                                        "the authenticated user")
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--all', '-a', action='store_true',
+                            help='Show both read and unread notifications')
+        parser.add_argument('--count', '-c', action='store', type=int,
+                            help='Max number of notifications to show')
+        parser.add_argument('--mark', '-m', action='store_true',
+                            help='Mark notifications as seen')
+        parser.set_defaults(func='notifications_cmd',
+                            func_args=lambda ns: [ns.since, ns.all, ns.count, ns.mark])
+
+    @staticmethod
+    def _add_parser_has_unread_notifications(parent):
+        """Add a sub-parser for the 'has_unread_notifications' command"""
+        parser = parent.add_parser('has_unread_notifications', aliases=['unread'],
+                                   help="Show true/false for unread notifications")
+        parser.set_defaults(func='unread_notifications_count_cmd',
+                            func_args=lambda ns: [])
+
+    @staticmethod
+    def _add_parser_likes(parent):
+        """Add a sub-parser for the 'likes' command"""
+        parser = parent.add_parser('likes', help="show likes for authenticated user")
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--count', '-c', action='store', type=int,
+                            help='Max number of notifications to show')
+        parser.add_argument('--date', '-d', action='store_true',
+                            help='Show date of each like (more costly)')
+        parser.add_argument('--short',  action='store_true',
+                            help='Show a short format output')
+        parser.set_defaults(func='likes_cmd',
+                            func_args=lambda ns: [ns.since, ns.count,
+                                                  ns.date, ns.short])
+
+    @staticmethod
+    def _add_parser_search(parent):
+        """Add a sub-parser for the 'search' command"""
+        parser = parent.add_parser('search', help="show posts for a given search "
+                                                  "string (Lucene search strings "
+                                                  "supported)")
+        parser.add_argument('term', action='store', help="term to search for")
+        parser.add_argument('--author', action='store',
+                            help='Restrict result to the given author handle')
+        parser.add_argument('--since', '-s', action='store',
+                            help='Date limit (e.g. today/yesterday/3 days ago')
+        parser.add_argument('--sort', choices=['top', 'latest'],
+                            default='top',
+                            help="Sort result by top or latest")
+        parser.add_argument('--follow', choices=['true', 'false', None],
+                            help="Show only posts by users that the authenticated "
+                                 "user follows (true) or doesn't follow (false)")
+        parser.add_argument('--follower', choices=['true', 'false', None],
+                            help='Show only posts by users that are followers '
+                                 '(true) or not followers (false) of the '
+                                 'authenticated user')
+        parser.set_defaults(func='search_cmd',
+                            func_args=lambda ns:
+                            [SearchCommandRequest(
+                                ns.term, ns.author, ns.since, ns.sort,
+                                CommandLineParser._true_false(ns.follow),
+                                CommandLineParser._true_false(ns.follower))])
+
+    @staticmethod
+    def _true_false(flag):
+        '''Check true/false argument string'''
+        if flag == 'true':
+            return True
+        if flag == 'false':
+            return False
+        return None
 
 
 class BlueSkyCommandLine:
@@ -25,7 +375,7 @@ class BlueSkyCommandLine:
 
     def __init__(self, args):
         '''Command Line Main Entry Point'''
-        self.ns = self.create_parser().parse_args(args)
+        self.ns = CommandLineParser(args).parse_args()
         shared.DEBUG = self.ns.debug
         self.logger = self._configure_logging(self.ns)
 
@@ -58,12 +408,12 @@ class BlueSkyCommandLine:
     def follows_cmd(self, handle, full):
         '''Print details of the users that the current user follows'''
         for profile in self.bs.follows(handle):
-            self.print_profile(profile, full)
+            self._print_profile(profile, full=full)
 
     def followers_cmd(self, handle, full):
         '''Print details of the users that follow the current user'''
         for profile in self.bs.followers(handle):
-            self.print_profile(profile, full)
+            self._print_profile(profile, full=full)
 
     def mutuals_cmd(self, handle, flag, full):
         '''If flag == both print the users that the given user follows and who
@@ -73,7 +423,7 @@ class BlueSkyCommandLine:
            If flag = followers-not-follows print entries of users that follow
            this user that this user does not follow back'''
         for profile in self.bs.get_mutuals(handle, flag):
-            self.print_profile(profile, full)
+            self._print_profile(profile, full=full)
 
     def post_cmd(self, text, show_uri):
         '''Post the given text and optionally print the resulting post uri'''
@@ -93,27 +443,39 @@ class BlueSkyCommandLine:
         if show_uri:
             print(uri)
 
-    def posts_cmd(self, handle, since, count, reply, original):
-        '''Print the posts by the given user handle limited by the date count
-           supplied, original or replies'''
-        for post in self.bs.get_posts(handle, since, count, reply, original):
-            self.print_post_entry(post)
+    def posts_cmd(self, req):
+        '''Print the posts by the given user handle limited by the request details
+           like: date_limit, count, reply vs. original post'''
+        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
+                                      req.reply, req.original):
+            self._print_post_entry(post)
 
     def post_likes_cmd(self, uri, full):
         '''Print the like details of the given post'''
         for like in self.bs.get_post_likes(uri):
-            self.print_like_entry(like, full)
+            self._print_like_entry(like, full)
 
-    def posts_likes_cmd(self, handle, since, count, reply, original, full):
-        '''Print the like details of the posts found by the given parameters'''
-        for post in self.bs.get_posts(handle, since, count, reply, original):
-            for like in self.bs.get_post_likes(post.uri):
-                self.print_like_entry(like, full)
+    def posts_likes_cmd(self, req):
+        '''Print the like details of the posts found by the request details
+           like: date_limit, count, reply vs. original post'''
+        count = 0
+        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
+                                      reply=req.reply,
+                                      original=req.original):
+            if post.like_count:
+                count += 1
+                for like in self.bs.get_post_likes(post.uri):
+                    self._print_like_entry(like, req.full)
+                    self._print_post_entry(post)
 
-    def most_likes_cmd(self, handle, since, count, reply, original, full):
+            if count >= req.count:
+                break
+
+    def most_likes_cmd(self, req):
         '''Print details of who most likes the posts found by the given parameters'''
         likes = {}
-        for post in self.bs.get_posts(handle, since, count, reply, original):
+        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
+                                      req.reply, req.original):
             for like in self.bs.get_post_likes(post.uri):
                 if like.actor.did in likes:
                     count, profile = likes[like.actor.did]
@@ -121,11 +483,12 @@ class BlueSkyCommandLine:
                     likes[like.actor.did] = count, profile
                 else:
                     likes[like.actor.did] = 1, like.actor
+
         for value in sorted(likes.values(), key=lambda v: v[0], reverse=True):
-            if full:
-                print(f"Like Count: {count}")
+            if req.full:
                 count, profile = value
-                self.print_profile(profile, full)
+                print(f"Like Count: {count}")
+                self._print_profile(profile, full=True)
             else:
                 count, profile = value
                 print(f"{count} {profile.handle} ({profile.display_name})")
@@ -138,17 +501,17 @@ class BlueSkyCommandLine:
     def profile_cmd(self, handle):
         '''Print the profile entry of the given user handle'''
         profile = self.bs.get_profile(handle)
-        self.print_profile(profile, True)
+        self._print_profile(profile, full=True)
 
-    def notifications_cmd(self, since, show_all, count_limit, mark):
+    def notifications_cmd(self, date_limit, show_all, count_limit, mark):
         '''Print the unread, or all, notifications received, optionally since the
            date supplied. Optionally mark the unread notifications as read'''
         notification_count, unread_count = 0, 0
-        for notif, post in self.bs.get_notifications(date_limit_str=since,
+        for notif, post in self.bs.get_notifications(date_limit_str=date_limit,
                                                      count_limit=count_limit,
                                                      mark_read=mark):
             if show_all or not notif.is_read:
-                self.print_notification_entry(notif, post)
+                self._print_notification_entry(notif, post)
 
             if not notif.is_read:
                 unread_count += 1
@@ -163,22 +526,22 @@ class BlueSkyCommandLine:
         count = self.bs.get_unread_notifications_count()
         print(f"Unread: {count}")
 
-    def likes_cmd(self, since, count_limit, show_date, short=False):
+    def likes_cmd(self, date_limit, count_limit, show_date, short=False):
         '''Print details of the likes submitted by the currently authenticated user,
            optionally limited by the supplied date.'''
-        for like in self.bs.get_likes(since,
+        for like in self.bs.get_likes(date_limit,
                                       count_limit=count_limit,
                                       get_date=show_date):
-            self.print_like(like, short)
+            self._print_like(like, short)
 
-    def reposters_cmd(self, handle, since, full):
+    def reposters_cmd(self, handle, date_limit, full):
         '''Print the user handles of the users that have reposted posts by the
            given user handle. Optionally print the count of times each user has
            reposted the user's posts'''
         total = 0
-        for repost_info in self.bs.get_reposters(handle or self.handle, since):
+        for repost_info in self.bs.get_reposters(handle or self.handle, date_limit):
             if full:
-                self.print_profile(repost_info['profile'], full)
+                self._print_profile(repost_info['profile'], full=full)
                 for post in repost_info['posts']:
                     print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
                 total += repost_info['count']
@@ -189,18 +552,19 @@ class BlueSkyCommandLine:
         if full:
             print(f"Total Reposts: {total}")
 
-    def search_cmd(self, term, author, since, sort_order, is_follow, is_follower):
+    def search_cmd(self, req):
         '''Print posts that match the given search terms. Optionally limit the
            search to the supplied date and/or output whether the poster is a
            follower or is followed by the currently authenticated user'''
-        for post, follows, followers in self.bs.search(term, author, since, sort_order,
-                                                       is_follow, is_follower):
-            self.print_post_entry(post, follows=follows, followers=followers)
+        for post, follows, followers in self.bs.search(req.term, req.author,
+                                                       req.date_limit, req.sort_order,
+                                                       req.is_follow, req.is_follower):
+            self._print_post_entry(post, follows=follows, followers=followers)
 
-    def print_like(self, like, short):
+    def _print_like(self, like, short):
         '''Print details of the given like structure'''
         if short:
-            self.print_profile_name(like.post.author)
+            self._print_profile_name(like.post.author)
             print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
             text = like.post.record.text.replace("\n", " ")
 
@@ -209,8 +573,8 @@ class BlueSkyCommandLine:
             else:
                 print(f"{text[:77]}...")
         else:
-            self.print_profile_name(like.post.author)
-            self.print_profile_link(like.post.author)
+            self._print_profile_name(like.post.author)
+            self._print_profile_link(like.post.author)
             # author_profile = self.profile(handle)
             # followers = author_profile.followers_count
             # f"{like.post.author.display_name} ({followers} followers)\n"
@@ -220,11 +584,11 @@ class BlueSkyCommandLine:
             print(f"Text: {like.post.record.text}")
         print('-----')
 
-    def print_profile(self, profile, full=False):
+    def _print_profile(self, profile, label='Profile', full=False):
         '''Print details of the given profile structure'''
-        self.print_profile_name(profile)
+        self._print_profile_name(profile, label)
         if full:
-            self.print_profile_link(profile)
+            self._print_profile_link(profile)
             print(f"DID: {profile.did}")
             print(f"Created at: {dateparse.humanise_date_string(profile.created_at)}")
             if profile.description:
@@ -233,12 +597,12 @@ class BlueSkyCommandLine:
                       sep='')
 
     @staticmethod
-    def print_profile_name(author):
+    def _print_profile_name(author, label='Profile'):
         '''Print the display name of the given profile'''
-        print(f"Profile: {author.display_name} @{author.handle}")
+        print(f"{label}: {author.display_name} @{author.handle}")
 
     @staticmethod
-    def print_profile_link(author):
+    def _print_profile_link(author):
         '''Print the http link to the profile of the given user'''
         print(f"Profile Link: https://bsky.app/profile/{author.handle}")
 
@@ -249,10 +613,10 @@ class BlueSkyCommandLine:
             hand += '.bsky.social'
         print(self.bs.profile_did(hand))
 
-    def print_post_entry(self, post, follows=None, followers=None):
+    def _print_post_entry(self, post, follows=None, followers=None):
         '''Print details of the given post structure'''
-        self.print_profile_name(post.author)
-        self.print_profile_link(post.author)
+        self._print_profile_name(post.author)
+        self._print_profile_link(post.author)
         if follows:
             is_follow = post.author.handle in follows
             print(f"Follows: {is_follow}")
@@ -262,20 +626,20 @@ class BlueSkyCommandLine:
         print(f"Date: {dateparse.humanise_date_string(post.record.created_at)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
-        if post.reply:
+        if hasattr(post, 'reply') and post.reply:
             print(f"Reply Link: {self.bs.at_uri_to_http_url(post.reply.root.uri)}")
         print(f"Likes: {post.like_count}")
         print(f"Text: {post.record.text}")
         print('-----')
 
-    def print_like_entry(self, like, full=False):
+    def _print_like_entry(self, like, full=False):
         '''Print details of the given post like'''
-        self.print_profile(like.actor, full)
+        self._print_profile(like.actor, label='Liked By', full=full)
 
-    def print_notification_entry(self, notif, post):
+    def _print_notification_entry(self, notif, post):
         '''Print details of the given notification structure'''
-        self.print_profile_name(notif.author)
-        self.print_profile_link(notif.author)
+        self._print_profile_name(notif.author)
+        self._print_profile_link(notif.author)
         print(f"Reason: {notif.reason}")
         print(f"Date: {dateparse.humanise_date_string(notif.indexed_at)}")
         if post:
@@ -292,313 +656,6 @@ class BlueSkyCommandLine:
             raise FileNotFoundError(f"Config file not found: {path}")
         cp.read(path)
         return cp.get('auth', 'user'), cp.get('auth', 'password')
-
-    def create_parser(self):
-        '''Create the top level command parser and attach parsers for sub-commands'''
-        main_parser = argparse.ArgumentParser()
-
-        # Global arguments
-        main_parser.add_argument('--critical', action='store_true',
-                                 help='Set log level to CRITICAL')
-        main_parser.add_argument('--error', '-e', action='store_true',
-                                 help='Set log level to ERROR')
-        main_parser.add_argument('--warning', '-w', action='store_true',
-                                 help='Set log level to WARNING')
-        main_parser.add_argument('--info', '-i', action='store_true',
-                                 help='Set log level to INFO')
-        main_parser.add_argument('--debug', '-d', action='store_true',
-                                 help='Set log level to DEBUG')
-        main_parser.add_argument('--verbose', '-v', action='store_true',
-                                 help='Synonym for --debug')
-        main_parser.add_argument('--config', '-c', dest='config', action='store',
-                                 help='config file or $BSCONFIG or $PWD/.config')
-
-        sub_parser = main_parser.add_subparsers(title='Sub Commands')
-
-        # Get all add parser methods (.add_parser_XXXX)
-        methods = [method for method in dir(self)
-                   if callable(getattr(self, method))
-                   if method.startswith('add_parser_')]
-
-        # Invoke these methods
-        for method in methods:
-            getattr(self, method)(sub_parser)
-
-        # wrap parser.parse_args() to make it act like one sub command is required.
-        # No required keyword for sub-parsers until py 3.7
-        def parse(args):
-            ns = main_parser.original_parse_args(args)
-            if not hasattr(ns, 'func'):
-                main_parser.print_help()
-                sys.exit(1)
-            return ns
-
-        main_parser.original_parse_args = main_parser.parse_args
-        main_parser.parse_args = parse
-        return main_parser
-
-    @staticmethod
-    def add_parser_did(parent):
-        """Add a sub-parser for the 'did' command"""
-        parser = parent.add_parser('did', help="show a user's did")
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.set_defaults(func='did_cmd',
-                            func_args=lambda ns: [ns.handle])
-
-    @staticmethod
-    def add_parser_follows(parent):
-        """Add a sub-parser for the 'follows' command"""
-        parser = parent.add_parser('follows', help="show who a user follows")
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show more details of each user')
-        parser.set_defaults(func='follows_cmd',
-                            func_args=lambda ns: [ns.handle, ns.full])
-
-    @staticmethod
-    def add_parser_followers(parent):
-        """Add a sub-parser for the 'followers' command"""
-        parser = parent.add_parser('followers',
-                                   help="show the given user's followers")
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show more details of each user')
-        parser.set_defaults(func='followers_cmd',
-                            func_args=lambda ns: [ns.handle, ns.full])
-
-    @staticmethod
-    def add_parser_mutuals(parent):
-        """Add a sub-parser for the 'mutuals' command"""
-        parser = parent.add_parser('mutuals',
-                                   help="show who follows the given user")
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--flag',
-                            choices=['both',
-                                     'follows-not-followers', 'followers-not-follows'],
-                            default='both',
-                            help="both show mutuals, follows-not-followers show "
-                                 "users that the given user follows that don't "
-                                 "follow back, followers-not-follows show users that "
-                                 "follow the given user that the user doesn't follow "
-                                 "back")
-        parser.add_argument('--full', action='store_true',
-                            help='Show more details of each user')
-        parser.set_defaults(func='mutuals_cmd',
-                            func_args=lambda ns: [ns.handle, ns.flag, ns.full])
-
-    @staticmethod
-    def add_parser_post(parent):
-        """Add a sub-parser for the 'post' command"""
-        parser = parent.add_parser('post', help='post text to BlueSky')
-        parser.add_argument('text', action='store', help='text to post')
-        parser.add_argument('--uri', '-u', action='store_true',
-                            help='Show URI of post')
-        parser.set_defaults(func='post_cmd', func_args=lambda ns: [ns.text, ns.uri])
-
-    @staticmethod
-    def add_parser_rich(parent):
-        """Add a sub-parser for the 'rich' command"""
-        parser = parent.add_parser('rich', help='post text to BlueSky')
-        parser.add_argument('text', action='store', help='text to post')
-        parser.add_argument('--mentions', '-m', nargs='+',
-                            help='A list of user mentions (no @ required)')
-        parser.add_argument('--uri', '-u', action='store_true',
-                            help='Show URI of post')
-        parser.set_defaults(func='rich_cmd',
-                            func_args=lambda ns: [ns.text, ns.mentions, ns.uri])
-
-    @staticmethod
-    def add_parser_posts(parent):
-        """Add a sub-parser for the 'posts' command"""
-        parser = parent.add_parser('posts', help='show BlueSky posts')
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--count', '-c', type=int, action='store',
-                            help='Count of posts to display')
-        parser.add_argument('handle', nargs='?', help="user's handle")
-
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='posts_cmd',
-                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
-                                                  ns.reply, ns.original])
-
-    @staticmethod
-    def add_parser_post_image(parent):
-        """Add a sub-parser for the 'posts_image' command"""
-        parser = parent.add_parser('postimage', aliases=['pi'],
-                                   help='post image to BlueSky')
-        parser.add_argument('text', action='store', help='text to post')
-        parser.add_argument('filename', action='store', help='Path to image file')
-        parser.add_argument('--alt', '-a', action='store', help='Image alt text')
-        parser.add_argument('--uri', '-u', action='store_true',
-                            help='Show URI of post')
-        parser.set_defaults(func='post_image_cmd',
-                            func_args=lambda ns: [ns.text, ns.filename,
-                                                  ns.alt, ns.uri])
-
-    @staticmethod
-    def add_parser_post_likes(parent):
-        """Add a sub-parser for the 'posts_likes' command"""
-        parser = parent.add_parser('postlikes', aliases=['pl'],
-                                   help='Show like details of a particular post')
-        parser.add_argument('uri', action='store', help='post URI')
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show full details of each user who likes the post')
-        parser.set_defaults(func='post_likes_cmd',
-                            func_args=lambda ns: [ns.uri, ns.full])
-
-    @staticmethod
-    def add_parser_posts_likes(parent):
-        """Add a sub-parser for the 'postslikes' command"""
-        parser = parent.add_parser('postslikes', aliases=['psl'],
-                                   help='Show like details of the found posts')
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--count', '-c', type=int, action='store',
-                            help='Count of posts to display')
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show full details of each user who likes the post')
-
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='posts_likes_cmd',
-                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
-                                                  ns.reply, ns.original, ns.full])
-
-    @staticmethod
-    def add_parser_most_likes(parent):
-        """Add a sub-parser for the 'mostlikes' command"""
-        parser = parent.add_parser(
-                    'mostlikes', aliases=['ml'],
-                    help='Find users with the most likes for the given posts')
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--count', '-c', type=int, action='store',
-                            help='Count of posts to display')
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show full details of each user who likes the post')
-
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='most_likes_cmd',
-                            func_args=lambda ns: [ns.handle, ns.since, ns.count,
-                                                  ns.reply, ns.original, ns.full])
-
-    @staticmethod
-    def add_parser_delete(parent):
-        """Add a sub-parser for the 'delete' command"""
-        parser = parent.add_parser('delete', aliases=['del'],
-                                   help='delete BlueSky post')
-        parser.add_argument('uri', action='store', help='URI to delete')
-        parser.set_defaults(func='delete_cmd', func_args=lambda ns: [ns.uri])
-
-    @staticmethod
-    def add_parser_reposters(parent):
-        """Add a sub-parser for the 'reposters' command"""
-        parser = parent.add_parser('reposters', help='show repost users')
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--full', '-f', action='store_true',
-                            help='Show more details of each user')
-        parser.set_defaults(func='reposters_cmd',
-                            func_args=lambda ns: [ns.handle, ns.since, ns.full])
-
-    @staticmethod
-    def add_parser_profile(parent):
-        """Add a sub-parser for the 'profile' command"""
-        parser = parent.add_parser('profile', help="show user's profile")
-        parser.add_argument('handle', nargs='?', help="user's handle")
-        parser.set_defaults(func='profile_cmd', func_args=lambda ns: [ns.handle])
-
-    @staticmethod
-    def add_parser_notifications(parent):
-        """Add a sub-parser for the 'notifications' command"""
-        parser = parent.add_parser('notifications', aliases=['not', 'notif'],
-                                   help="show notifications for "
-                                        "the authenticated user")
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--all', '-a', action='store_true',
-                            help='Show both read and unread notifications')
-        parser.add_argument('--count', '-c', action='store', type=int,
-                            help='Max number of notifications to show')
-        parser.add_argument('--mark', '-m', action='store_true',
-                            help='Mark notifications as seen')
-        parser.set_defaults(func='notifications_cmd',
-                            func_args=lambda ns: [ns.since, ns.all, ns.count, ns.mark])
-
-    @staticmethod
-    def add_parser_has_unread_notifications(parent):
-        """Add a sub-parser for the 'has_unread_notifications' command"""
-        parser = parent.add_parser('has_unread_notifications', aliases=['unread'],
-                                   help="Show true/false for unread notifications")
-        parser.set_defaults(func='unread_notifications_count_cmd',
-                            func_args=lambda ns: [])
-
-    @staticmethod
-    def add_parser_likes(parent):
-        """Add a sub-parser for the 'likes' command"""
-        parser = parent.add_parser('likes', help="show likes for authenticated user")
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--count', '-c', action='store', type=int,
-                            help='Max number of notifications to show')
-        parser.add_argument('--date', '-d', action='store_true',
-                            help='Show date of each like (more costly)')
-        parser.add_argument('--short',  action='store_true',
-                            help='Show a short format output')
-        parser.set_defaults(func='likes_cmd',
-                            func_args=lambda ns: [ns.since, ns.count,
-                                                  ns.date, ns.short])
-
-    @staticmethod
-    def add_parser_search(parent):
-        """Add a sub-parser for the 'search' command"""
-        parser = parent.add_parser('search', help="show posts for a given search "
-                                                  "string (Lucene search strings "
-                                                  "supported)")
-        parser.add_argument('term', action='store', help="term to search for")
-        parser.add_argument('--author', action='store',
-                            help='Restrict result to the given author handle')
-        parser.add_argument('--since', '-s', action='store',
-                            help='Date limit (e.g. today/yesterday/3 days ago')
-        parser.add_argument('--sort', choices=['top', 'latest'],
-                            default='top',
-                            help="Sort result by top or latest")
-        parser.add_argument('--follow', choices=['true', 'false', None],
-                            help="Show only posts by users that the authenticated "
-                                 "user follows (true) or doesn't follow (false)")
-        parser.add_argument('--follower', choices=['true', 'false', None],
-                            help='Show only posts by users that are followers '
-                                 '(true) or not followers (false) of the '
-                                 'authenticated user')
-        parser.set_defaults(func='search_cmd',
-                            func_args=lambda ns:
-                            [ns.term, ns.author, ns.since, ns.sort,
-                             BlueSkyCommandLine._true_false(ns.follow),
-                             BlueSkyCommandLine._true_false(ns.follower)])
-
-    @staticmethod
-    def _true_false(flag):
-        '''Check true/false argument string'''
-        if flag == 'true':
-            return True
-        if flag == 'false':
-            return False
-        return None
 
 
 def main():
