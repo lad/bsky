@@ -466,9 +466,10 @@ class BlueSkyCommandLine:
                 count += 1
                 for like in self.bs.get_post_likes(post.uri):
                     self._print_like_entry(like, req.full)
-                    self._print_post_entry(post)
+                    if req.full:
+                        self._print_post_entry(post)
 
-            if count >= req.count:
+            if count >= req.count_limit:
                 break
 
     def most_likes_cmd(self, req):
@@ -599,7 +600,11 @@ class BlueSkyCommandLine:
     @staticmethod
     def _print_profile_name(author, label='Profile'):
         '''Print the display name of the given profile'''
-        print(f"{label}: {author.display_name} @{author.handle}")
+        if author.display_name:
+            display_name = f"{author.display_name} "
+        else:
+            display_name = ''
+        print(f"{label}: {display_name}@{author.handle}")
 
     @staticmethod
     def _print_profile_link(author):
