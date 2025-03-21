@@ -472,9 +472,9 @@ class BlueSky:
         if hand.startswith(self.PROFILE_URL):
             hand = hand.split('/')[-1]
         elif '.' not in hand:
-            hand = (hand + '.bsky.social').lstrip('@')
+            hand = (hand + '.bsky.social')
 
-        return hand
+        return hand.lstrip('@')
 
     def _get_image_data(self, filename):
         '''Read the image at the given filename and downsize it to under the
