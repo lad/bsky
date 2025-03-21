@@ -80,13 +80,13 @@ class BlueSky:
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             self.logger.info('Date limit reached')
-                            return
+                            return None
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
                             self.logger.info('Count limit reached')
-                            return
+                            return None
 
                     yield like
 
@@ -100,6 +100,8 @@ class BlueSky:
                 self._print_at_protocol_error(ex)
         else:
             self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
+        return None
 
     @normalize_handle
     def get_mutuals(self, handle, flag):
@@ -472,7 +474,7 @@ class BlueSky:
         if hand.startswith(self.PROFILE_URL):
             hand = hand.split('/')[-1]
         elif '.' not in hand:
-            hand = (hand + '.bsky.social')
+            hand = hand + '.bsky.social'
 
         return hand.lstrip('@')
 
