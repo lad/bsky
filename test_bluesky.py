@@ -114,10 +114,16 @@ class TestGetLikes:
 
             # Call function under test: get_likes() with no date and no count
             likes = list(self.instance.get_likes(None))
+
+            # assert the number of likes returned
             assert len(likes) == param
+
+            # assert the contents of the returned likes
             for like, mock_feed in zip(likes, gal_mock.feed):
                 assert like.post.viewer.like == mock_feed.post.viewer.like
                 assert like.post.uri == mock_feed.post.uri
+                # no date limit string was provided and get_date is False so we
+                # should not get back a valid created_at field.
                 assert like.created_at is None
 
     def test_get_likes_no_date_no_count_get_date(self, setup_method,
@@ -133,10 +139,15 @@ class TestGetLikes:
             # Call function under test: get_likes() with no date and no count and
             # get_date=True
             likes = list(self.instance.get_likes(None, get_date=True))
+
+            # assert the number of likes returned
             assert len(likes) == param
+
+            # assert the contents of the returned likes
             for like, mock_feed in zip(likes, gal_mock.feed):
                 assert like.post.viewer.like == mock_feed.post.viewer.like
                 assert like.post.uri == mock_feed.post.uri
+                # get_date was True so we should get back a valid date
                 assert like.created_at is not None
                 assert like.created_at == mock_feed.created_at
 
@@ -169,12 +180,17 @@ class TestGetLikes:
             # Call function under test: get_likes() with a date limit but no count
             # and get_date=False.
             #
-            # The date limit string is the parameter passed in and the number
-            # of likes we get back has been setup to be 1 per minute so 1
-            # minute ago should give 1 likes, up to 10 minutes ago should give
-            # 10 likes
+            # This test is parameterized with the date limit string. It corresponds to
+            # the number of likes we will get back from get_likes(). The likes have
+            # been setup by setup_10_gal_mock() with created_at fields decreasing by
+            # <n> minutes ago. So a date limit string of "1 minute ago" should give 1
+            # like up to "10 minutes ago" should give 10 likes
             likes = list(self.instance.get_likes(f"{minutes_ago} minutes ago"))
+
+            # assert the number of likes returned
             assert len(likes) == minutes_ago
+
+            # assert the contents of the returned likes
             for like, mock_feed, created_at in zip(likes, setup_10_gal_mock.feed,
                                                    self.like_get_mock_feed_created_at):
                 assert like.post.viewer.like == mock_feed.post.viewer.like
