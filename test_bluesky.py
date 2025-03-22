@@ -27,21 +27,20 @@ class TestGetLikes:
             self.instance = BlueSky(handle='@testuser.bsky.social',
                                     password='testpassword')
 
-    @pytest.fixture(name='like_created_at')
-    def setup_like_created_at(self):
+    def like_created_at(self):
         '''Create a timespec for reuse'''
         now = datetime.datetime.now(datetime.UTC)
         return now.isoformat(timespec='milliseconds')
 
     @pytest.fixture(name='like_mock')
-    def setup_like_mock(self, like_created_at):
+    def setup_like_mock(self):
         '''Create a mock like object with a valid structure'''
         like_mock = MagicMock()
         like_mock.post = MagicMock()
         like_mock.post.viewer = MagicMock()
         like_mock.post.viewer.like = 'at://example/did/1'
         like_mock.post.uri = 'at://example/post/1'
-        like_mock.created_at = like_created_at
+        like_mock.created_at = self.like_created_at()
         return like_mock
 
     @pytest.fixture(name='gal_mock_param', params=[1, 2, 3])
@@ -58,11 +57,11 @@ class TestGetLikes:
         return gal_mock, request.param
 
     @pytest.fixture(name='like_get_mock')
-    def setup_like_get_mock(self, like_created_at):
+    def setup_like_get_mock(self):
         '''Create a mock response for like.get()'''
         like_get_mock = MagicMock()
         like_get_mock.value = MagicMock()
-        like_get_mock.value.created_at = like_created_at
+        like_get_mock.value.created_at = self.like_created_at
         return like_get_mock
 
     def test_get_likes_failures(self, setup_method):
