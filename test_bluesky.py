@@ -32,7 +32,7 @@ class TestGetLikes:
         now = datetime.datetime.now(datetime.UTC)
         return now.isoformat(timespec='milliseconds')
 
-    @pytest.fixture(name='like_mock')
+    @pytest.fixture
     def setup_like_mock(self):
         '''Create a mock like object with a valid structure'''
         like_mock = MagicMock()
@@ -43,20 +43,20 @@ class TestGetLikes:
         like_mock.created_at = self.like_created_at()
         return like_mock
 
-    @pytest.fixture(name='gal_mock_param', params=[1, 2, 3])
-    def setup_gal_mock(self, request, like_mock):
+    @pytest.fixture(params=[1, 2, 3])
+    def setup_gal_mock(self, request, setup_like_mock):
         '''Create a mock response for get_actor_likes()'''
         gal_mock = MagicMock()
         gal_mock.feed = []
         # Number of like mocks depends on test fixture param
         for i in range(request.param):
-            like_mock_copy = copy.deepcopy(like_mock)
+            like_mock_copy = copy.deepcopy(setup_like_mock)
             like_mock_copy.post.uri = f"at://example/post/{i}"
             gal_mock.feed.append(like_mock_copy)
         gal_mock.cursor = None
         return gal_mock, request.param
 
-    @pytest.fixture(name='like_get_mock')
+    @pytest.fixture
     def setup_like_get_mock(self):
         '''Create a mock response for like.get()'''
         like_get_mock = MagicMock()
@@ -74,10 +74,11 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_get_likes_no_date_no_count(self, setup_method, gal_mock_param, like_get_mock):
+    def test_get_likes_no_date_no_count(self, setup_method,
+                                        setup_gal_mock, setup_like_get_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
         # Mock the API call to return the mock response
-        gal_mock, param = gal_mock_param
+        gal_mock, param = setup_gal_mock
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=gal_mock):
 
@@ -90,14 +91,14 @@ class TestGetLikes:
                 assert like.created_at is None
 
     def test_get_likes_no_date_no_count_get_date(self, setup_method,
-                                                 gal_mock_param, like_get_mock):
+                                                 setup_gal_mock, setup_like_get_mock):
         '''Test the get_likes method, no date, no count, get_date True'''
         # Mock the API call to return the mock response
-        gal_mock, param = gal_mock_param
+        gal_mock, param = setup_gal_mock
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=gal_mock), \
             patch.object(self.instance.client.app.bsky.feed.like,
-                         'get', return_value=like_get_mock):
+                         'get', return_value=setup_like_get_mock):
 
             # Call function under test: get_likes()Wwith no date and no count
             likes = list(self.instance.get_likes(None, get_date=True))
