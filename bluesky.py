@@ -80,13 +80,13 @@ class BlueSky:
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             self.logger.info('Date limit reached')
-                            return None
+                            return []
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
                             self.logger.info('Count limit reached')
-                            return None
+                            return []
 
                     yield like
 
@@ -101,7 +101,7 @@ class BlueSky:
         else:
             self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
-        return None
+        return []
 
     @normalize_handle
     def get_mutuals(self, handle, flag):
