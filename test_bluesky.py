@@ -18,7 +18,7 @@ from bluesky import BlueSky
 
 class TestGetLikes:
     '''Test BlueSky get_likes() method'''
-    @pytest.fixture(name='setup')
+    @pytest.fixture
     def setup_method(self):
         '''Create an instance of the class containing the get_likes method'''
         with patch('atproto.Client') as mock_client:
@@ -65,7 +65,7 @@ class TestGetLikes:
         like_get_mock.value.created_at = like_created_at
         return like_get_mock
 
-    def test_get_likes_failures(self, setup):
+    def test_get_likes_failures(self, setup_method):
         '''Test BlueSky.get_likes() when get_actor_likes() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
@@ -75,7 +75,7 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_get_likes_no_date_no_count(self, setup, gal_mock_param, like_get_mock):
+    def test_get_likes_no_date_no_count(self, setup_method, gal_mock_param, like_get_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
         # Mock the API call to return the mock response
         gal_mock, param = gal_mock_param
@@ -90,7 +90,7 @@ class TestGetLikes:
                 assert like.post.uri == mock_feed.post.uri
                 assert like.created_at is None
 
-    def test_get_likes_no_date_no_count_get_date(self, setup,
+    def test_get_likes_no_date_no_count_get_date(self, setup_method,
                                                  gal_mock_param, like_get_mock):
         '''Test the get_likes method, no date, no count, get_date True'''
         # Mock the API call to return the mock response
@@ -110,7 +110,7 @@ class TestGetLikes:
                 assert like.created_at == mock_feed.created_at
 
     @pytest.mark.skip
-    def test_get_likes_with_likes(self, setup):
+    def test_get_likes_with_likes(self, setup_method):
         '''Test when likes are returned'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -126,7 +126,7 @@ class TestGetLikes:
         assert result[0].created_at == "2023-01-01T00:00:00Z"
 
     @pytest.mark.skip
-    def test_get_likes_date_limit_reached(self, setup):
+    def test_get_likes_date_limit_reached(self, setup_method):
         '''Test when the date limit is reached'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -141,7 +141,7 @@ class TestGetLikes:
         assert not result
 
     @pytest.mark.skip
-    def test_get_likes_count_limit_reached(self, setup):
+    def test_get_likes_count_limit_reached(self, setup_method):
         '''Test when the count limit is reached'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -156,7 +156,7 @@ class TestGetLikes:
         assert len(result) == 1
 
     @pytest.mark.skip
-    def test_get_likes_with_cursor(self, setup):
+    def test_get_likes_with_cursor(self, setup_method):
         '''Test when there are multiple pages of likes'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -173,7 +173,7 @@ class TestGetLikes:
         assert len(result) == 2
 
     @pytest.mark.skip
-    def test_get_likes_with_exceptions(self, setup):
+    def test_get_likes_with_exceptions(self, setup_method):
         '''Test when an AtProtocolError is raised'''
         self.instance.client.app.bsky.feed.get_actor_likes.side_effect = \
             atproto_core.exceptions.AtProtocolError("Error")
@@ -183,7 +183,7 @@ class TestGetLikes:
         assert self.instance.logger.error.called
 
     @pytest.mark.skip
-    def test_get_likes_failure_limit(self, setup):
+    def test_get_likes_failure_limit(self, setup_method):
         '''Test when the failure limit is reached'''
         self.instance.client.app.bsky.feed.get_actor_likes.side_effect = \
             atproto_core.exceptions.AtProtocolError("Error")
@@ -195,7 +195,7 @@ class TestGetLikes:
                                                              "more than %s failures"
 
     @pytest.mark.skip
-    def test_get_likes_with_get_date(self, setup):
+    def test_get_likes_with_get_date(self, setup_method):
         '''Test when get_date is True'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -211,13 +211,13 @@ class TestGetLikes:
         assert result[0].created_at == "2023-01-01T00:00:00Z"
 
     @pytest.mark.skip
-    def test_get_likes_with_invalid_date(self, setup):
+    def test_get_likes_with_invalid_date(self, setup_method):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
             list(self.instance.get_likes("invalid-date"))
 
     @pytest.mark.skip
-    def test_get_likes_with_none_date_limit(self, setup):
+    def test_get_likes_with_none_date_limit(self, setup_method):
         '''Test when date_limit_str is None'''
         like_mock = mock.Mock()
         like_mock.viewer.like = ("did", "rkey")
@@ -233,7 +233,7 @@ class TestGetLikes:
         assert result[0].created_at == "2023-01-01T00:00:00Z"
 
     @pytest.mark.skip
-    def test_get_likes_with_empty_feed(self, setup):
+    def test_get_likes_with_empty_feed(self, setup_method):
         '''Test when the feed is empty'''
         self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
             mock.Mock(feed=[], cursor=None)
@@ -242,7 +242,7 @@ class TestGetLikes:
         assert not result
 
     @pytest.mark.skip
-    def test_get_likes_with_multiple_failures(self, setup):
+    def test_get_likes_with_multiple_failures(self, setup_method):
         '''Test when multiple failures occur but within the limit'''
         self.instance.client.app.bsky.feed.get_actor_likes.side_effect = [
             atproto_core.exceptions.AtProtocolError("Error"),
@@ -253,7 +253,7 @@ class TestGetLikes:
         assert not result
         assert self.instance.logger.error.called
 
-    def test_get_reposters(self, setup):
+    def test_get_reposters(self, setup_method):
         '''Test the get_reposters method.'''
         mock_post = MagicMock()
         mock_post.repost_count = 1
@@ -272,7 +272,7 @@ class TestGetLikes:
                 assert len(reposters) == 1
                 assert reposters[0]['profile'].handle == 'reposter_user'
 
-    def test_post_text(self, setup):
+    def test_post_text(self, setup_method):
         '''Test the post_text method.'''
         mock_post = MagicMock()
         mock_post.uri = 'at://example/post/1'
@@ -281,7 +281,7 @@ class TestGetLikes:
             uri = self.instance.post_text('Hello, BlueSky!')
             assert uri == 'at://example/post/1'
 
-    def test_delete_post(self, setup):
+    def test_delete_post(self, setup_method):
         '''Test the delete_post method.'''
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -291,7 +291,7 @@ class TestGetLikes:
             response = self.instance.delete_post('at://example/post/1')
             assert response.status_code == 200
 
-    def test_get_profile(self, setup):
+    def test_get_profile(self, setup_method):
         '''Test the get_profile method.'''
         mock_profile = MagicMock()
         mock_profile.did = 'did:example:123'
@@ -311,6 +311,6 @@ class TestGetLikes:
         ('https://bsky.app/profile/testuser.bsky.social', 'testuser.bsky.social'),
         ('https://bsky.app/profile/other.bsky.social', 'other.bsky.social')
     ])
-    def test_normalize_handle_value(self, setup, handle, norm_handle):
+    def test_normalize_handle_value(self, setup_method, handle, norm_handle):
         '''Test BlueSky.normalize_handle_value method'''
         assert self.instance.normalize_handle_value(handle) == norm_handle
