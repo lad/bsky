@@ -3,7 +3,6 @@
 from unittest import mock
 from unittest.mock import patch, MagicMock
 import datetime
-import copy
 
 import atproto_core
 import atproto_core.exceptions
@@ -36,51 +35,36 @@ class TestGetLikes:
         now = datetime.datetime.now(datetime.UTC) - delta
         return now.isoformat(timespec='milliseconds')
 
-    @pytest.fixture
-    def setup_like_mock(self):
-        '''Create a mock like object with a valid structure'''
+    def create_like_mock(self, num=1):
+        '''Create like mock object. Used by several fixtures'''
         like_mock = MagicMock()
         like_mock.post = MagicMock()
         like_mock.post.viewer = MagicMock()
-        like_mock.post.viewer.like = 'at://example/did/1'
-        like_mock.post.uri = 'at://example/post/1'
+        like_mock.post.viewer.like = f"at://example/did/{num}"
+        like_mock.post.uri = f"at://example/post/{num}"
         # Do not set .created_at. This should be set when get_likes() calls
         # client.bsky.feed.like.get()
         return like_mock
 
+    @pytest.fixture
+    def setup_like_mock(self):
+        '''Create a mock like object with a valid structure'''
+        return self.create_like_mock()
+
     @pytest.fixture(params=[0, 1, 2, 3])
     def setup_gal_mock(self, request, setup_like_mock):
         '''Create a mock response for get_actor_likes()'''
-        gal_mock = MagicMock()
-        gal_mock.feed = []
-        # Number of like mocks depends on test fixture param
-        for i in range(request.param):
-            like_mock_copy = copy.deepcopy(setup_like_mock)
-            like_mock_copy.post.uri = f"at://example/post/{i}"
-            gal_mock.feed.append(like_mock_copy)
-        gal_mock.cursor = None
-        return gal_mock, request.param
+        return self.create_gal_mocks(request.param), request.param
 
     @pytest.fixture
-    def setup_10_like_mocks(self):
-        '''Create 10  mocks like object with a valid structure'''
-        like_mocks = []
-        for i in range(10):
-            like_mock = MagicMock()
-            like_mock.post = MagicMock()
-            like_mock.post.viewer = MagicMock()
-            like_mock.post.viewer.like = f"at://example/did/{i+1}"
-            like_mock.post.uri = f"at://example/post/{i+1}"
-            # Do not set .created_at. This should be set when get_likes() calls
-            # client.bsky.feed.like.get()
-            like_mocks.append(like_mock)
-        return like_mocks
-
-    @pytest.fixture
-    def setup_10_gal_mock(self, setup_10_like_mocks):
+    def setup_10_gal_mock(self):
         '''Create a mock response for get_actor_likes()'''
+        return self.create_gal_mocks(10)
+
+    def create_gal_mocks(self, num):
+        '''Create a mock response for get_actor_likes(). Used by several fixtures'''
         gal_mock = MagicMock()
-        gal_mock.feed = setup_10_like_mocks
+        gal_mock.feed = [self.create_like_mock(i+1) for i in range(num)]
         gal_mock.cursor = None
         return gal_mock
 
@@ -157,7 +141,7 @@ class TestGetLikes:
         like_get_mock.value = MagicMock()
         # Use the rkey part of the URI as the number of minutes old that the
         # like was created at. We setup these rkey/URI values as an increasing
-        # integer from 1 in setup_10_like_mocks()
+        # integer from 1 in setup_10_gal_mock()
         like_get_mock.value.created_at = self.like_created_at(minutes=int(rkey))
         self.like_get_mock_feed_created_at.append(like_get_mock.value.created_at)
         return like_get_mock
