@@ -15,6 +15,38 @@ from bluesky import BlueSky
 # pylint: disable=W0201 (attribute-defined-outside-init)
 
 
+class MockHelpers:
+    @staticmethod
+    def like_created_at(**kwargs):
+        '''Create a timespec for reuse'''
+        if kwargs:
+            delta = datetime.timedelta(**kwargs)
+        else:
+            delta = datetime.timedelta()
+        now = datetime.datetime.now(datetime.UTC) - delta
+        return now.isoformat(timespec='milliseconds')
+
+    @staticmethod
+    def create_like_mock(num=1):
+        '''Create like mock object. Used by several fixtures'''
+        like_mock = MagicMock()
+        like_mock.post = MagicMock()
+        like_mock.post.viewer = MagicMock()
+        like_mock.post.viewer.like = f"at://example/did/{num}"
+        like_mock.post.uri = f"at://example/post/{num}"
+        # Do not set .created_at. This should be set when get_likes() calls
+        # client.bsky.feed.like.get()
+        return like_mock
+
+    @staticmethod
+    def create_gal_mocks(num):
+        '''Create a mock response for get_actor_likes(). Used by several fixtures'''
+        gal_mock = MagicMock()
+        gal_mock.feed = [MockHelpers.create_like_mock(i+1) for i in range(num)]
+        gal_mock.cursor = None
+        return gal_mock
+
+
 class TestGetLikes:
     '''Test BlueSky get_likes() method'''
     @pytest.fixture
@@ -26,54 +58,27 @@ class TestGetLikes:
             self.instance = BlueSky(handle='@testuser.bsky.social',
                                     password='testpassword')
 
-    def like_created_at(self, **kwargs):
-        '''Create a timespec for reuse'''
-        if kwargs:
-            delta = datetime.timedelta(**kwargs)
-        else:
-            delta = datetime.timedelta()
-        now = datetime.datetime.now(datetime.UTC) - delta
-        return now.isoformat(timespec='milliseconds')
-
-    def create_like_mock(self, num=1):
-        '''Create like mock object. Used by several fixtures'''
-        like_mock = MagicMock()
-        like_mock.post = MagicMock()
-        like_mock.post.viewer = MagicMock()
-        like_mock.post.viewer.like = f"at://example/did/{num}"
-        like_mock.post.uri = f"at://example/post/{num}"
-        # Do not set .created_at. This should be set when get_likes() calls
-        # client.bsky.feed.like.get()
-        return like_mock
-
     @pytest.fixture
     def setup_like_mock(self):
         '''Create a mock like object with a valid structure'''
-        return self.create_like_mock()
+        return MockHelpers.create_like_mock()
 
     @pytest.fixture(params=[0, 1, 2, 3])
     def setup_gal_mock(self, request, setup_like_mock):
         '''Create a mock response for get_actor_likes()'''
-        return self.create_gal_mocks(request.param), request.param
+        return MockHelpers.create_gal_mocks(request.param), request.param
 
     @pytest.fixture
     def setup_10_gal_mock(self):
         '''Create a mock response for get_actor_likes()'''
-        return self.create_gal_mocks(10)
-
-    def create_gal_mocks(self, num):
-        '''Create a mock response for get_actor_likes(). Used by several fixtures'''
-        gal_mock = MagicMock()
-        gal_mock.feed = [self.create_like_mock(i+1) for i in range(num)]
-        gal_mock.cursor = None
-        return gal_mock
+        return MockHelpers.create_gal_mocks(10)
 
     @pytest.fixture
     def setup_like_get_mock(self):
         '''Create a mock response for like.get()'''
         like_get_mock = MagicMock()
         like_get_mock.value = MagicMock()
-        like_get_mock.value.created_at = self.like_created_at()
+        like_get_mock.value.created_at = MockHelpers.like_created_at()
         return like_get_mock
 
     def test_get_likes_failures(self, setup_method):
@@ -85,6 +90,18 @@ class TestGetLikes:
             # get_likes() is a generator, use list() to ensure it is actually invoked
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
+
+    def test_get_likes_failures2(self, setup_method, setup_10_gal_mock):
+        '''Test BlueSky.get_likes() when app.bsky.feed.like.get() raises exceptions'''
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes', return_value=setup_10_gal_mock), \
+             patch.object(self.instance.client.app.bsky.feed.like,
+                          'get',
+                          side_effect=atproto_core.exceptions.AtProtocolError(
+                                                'Mocked Exception')) as get_mock:
+            # get_likes() is a generator, use list() to ensure it is actually invoked
+            assert not list(self.instance.get_likes(None, get_date=True))
+            assert get_mock.call_count == BlueSky.FAILURE_LIMIT
 
     def test_get_likes_no_date_no_count_no_get_date(self,
                                                     setup_method,
@@ -142,7 +159,7 @@ class TestGetLikes:
         # Use the rkey part of the URI as the number of minutes old that the
         # like was created at. We setup these rkey/URI values as an increasing
         # integer from 1 in setup_10_gal_mock()
-        like_get_mock.value.created_at = self.like_created_at(minutes=int(rkey))
+        like_get_mock.value.created_at = MockHelpers.like_created_at(minutes=int(rkey))
         self.like_get_mock_feed_created_at.append(like_get_mock.value.created_at)
         return like_get_mock
 
@@ -215,16 +232,6 @@ class TestGetLikes:
         assert len(result) == 2
 
     @pytest.mark.skip
-    def test_get_likes_with_exceptions(self, setup_method):
-        '''Test when an AtProtocolError is raised'''
-        self.instance.client.app.bsky.feed.get_actor_likes.side_effect = \
-            atproto_core.exceptions.AtProtocolError("Error")
-
-        result = list(self.instance.get_likes("2023-01-01"))
-        assert not result
-        assert self.instance.logger.error.called
-
-    @pytest.mark.skip
     def test_get_likes_failure_limit(self, setup_method):
         '''Test when the failure limit is reached'''
         self.instance.client.app.bsky.feed.get_actor_likes.side_effect = \
@@ -234,23 +241,6 @@ class TestGetLikes:
         assert not result
         assert self.instance.logger.error.called
 
-    @pytest.mark.skip
-    def test_get_likes_with_get_date(self, setup_method):
-        '''Test when get_date is True'''
-        like_mock = mock.Mock()
-        like_mock.viewer.like = ("did", "rkey")
-        like_mock.created_at = "2023-01-01T00:00:00Z"
-
-        self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
-            mock.Mock(feed=[like_mock], cursor=None)
-        self.instance.client.app.bsky.feed.like.get.return_value = \
-            mock.Mock(value=like_mock)
-
-        result = list(self.instance.get_likes("2023-01-01", get_date=True))
-        assert len(result) == 1
-        assert result[0].created_at == "2023-01-01T00:00:00Z"
-
-    @pytest.mark.skip
     def test_get_likes_with_invalid_date(self, setup_method):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
@@ -272,7 +262,6 @@ class TestGetLikes:
         assert len(result) == 1
         assert result[0].created_at == "2023-01-01T00:00:00Z"
 
-    @pytest.mark.skip
     def test_get_likes_with_empty_feed(self, setup_method):
         '''Test when the feed is empty'''
         self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
