@@ -16,6 +16,7 @@ from bluesky import BlueSky
 
 
 class MockHelpers:
+    '''Helper functions for pytest mocks and fixtures'''
     @staticmethod
     def like_created_at(**kwargs):
         '''Create a timespec for reuse'''
@@ -167,7 +168,7 @@ class TestGetLikes:
         self.like_get_mock_feed_created_at.append(like_get_mock.value.created_at)
         return like_get_mock
 
-    @pytest.mark.parametrize("minutes_ago", range(10))
+    @pytest.mark.parametrize("minutes_ago", range(11))
     def test_get_likes_date_limit_reached(self, setup_method, setup_10_gal_mock,
                                           minutes_ago):
         '''Test when the date limit is reached'''
