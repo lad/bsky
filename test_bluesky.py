@@ -82,7 +82,7 @@ class TestGetLikes:
         like_get_mock.value.created_at = MockHelpers.like_created_at()
         return like_get_mock
 
-    def test_get_likes_gal_exceptions(self, setup_method):
+    def test_get_likes_gal_exception_limit(self, setup_method):
         '''Test BlueSky.get_likes() when get_actor_likes() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
@@ -92,7 +92,7 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_get_likes_get_exceptions(self, setup_method, setup_10_gal_mock):
+    def test_get_likes_get_exception_limit(self, setup_method, setup_10_gal_mock):
         '''Test BlueSky.get_likes() when app.bsky.feed.like.get() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -113,7 +113,6 @@ class TestGetLikes:
                                                     setup_method,
                                                     setup_gal_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
-        # Mock the API call to return the mock response
         gal_mock, param = setup_gal_mock
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=gal_mock):
@@ -135,10 +134,46 @@ class TestGetLikes:
     def test_get_likes_no_date_no_count_get_date(self, setup_method,
                                                  setup_gal_mock, setup_like_get_mock):
         '''Test the get_likes method, no date, no count, get_date True'''
-        # Mock the API call to return the mock response
         gal_mock, param = setup_gal_mock
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=gal_mock), \
+            patch.object(self.instance.client.app.bsky.feed.like,
+                         'get', return_value=setup_like_get_mock):
+
+            # Call function under test: get_likes() with no date and no count and
+            # get_date=True
+            likes = list(self.instance.get_likes(None, get_date=True))
+
+            # assert the number of likes returned
+            assert len(likes) == param
+
+            # assert the contents of the returned likes
+            for like, mock_feed in zip(likes, gal_mock.feed):
+                assert like.post.viewer.like == mock_feed.post.viewer.like
+                assert like.post.uri == mock_feed.post.uri
+                # get_date was True so we should get back a valid date
+                assert like.created_at is not None
+                assert like.created_at == mock_feed.created_at
+
+    def test_get_likes_no_date_no_count_get_date_with_retries(
+            self, setup_method, setup_gal_mock, setup_like_get_mock):
+        '''Test the get_likes method, no date, no count, get_date True when
+           some exceptions occur focing retries'''
+        gal_mock, param = setup_gal_mock
+        num_exceptions = 2
+
+        # Throw exceptions twice from the get_actor_likes mock. This should force
+        # retries in get_likes(). On the third try it will return the mock object.
+        def side_effect_atproto_exceptions(params=None):
+            nonlocal num_exceptions
+            num_exceptions -= 1
+            if num_exceptions >= 0:
+                raise atproto_core.exceptions.AtProtocolError('Mocked Exception')
+            return gal_mock
+
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes',
+                          side_effect=side_effect_atproto_exceptions), \
             patch.object(self.instance.client.app.bsky.feed.like,
                          'get', return_value=setup_like_get_mock):
 
@@ -172,7 +207,6 @@ class TestGetLikes:
     def test_get_likes_date_limit_reached(self, setup_method, setup_10_gal_mock,
                                           minutes_ago):
         '''Test when the date limit is reached'''
-        # Mock the API call to return the mock response
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
             patch.object(self.instance.client.app.bsky.feed.like,
@@ -208,7 +242,6 @@ class TestGetLikes:
     def test_get_likes_count_limit_reached(self, setup_method, setup_10_gal_mock,
                                            count_limit):
         '''Test when the date limit is reached'''
-        # Mock the API call to return the mock response
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
             patch.object(self.instance.client.app.bsky.feed.like,
@@ -283,7 +316,6 @@ class TestGetLikes:
         mock_post.repost_count = 1
         mock_post.uri = 'at://example/post/1'
 
-        # Mock the response for get_posts
         with patch.object(self.instance, 'get_posts', return_value=[mock_post]):
             mock_reposter = MagicMock()
             mock_reposter.handle = 'reposter_user'
