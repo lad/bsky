@@ -471,6 +471,8 @@ class BlueSky:
         '''Normalize the handle value. This assumes its wrapping a method from the
         BlueSky class'''
         hand = handle or self.handle
+        if hand.startswith('did'):
+            return hand
         if hand.startswith(self.PROFILE_URL):
             hand = hand.split('/')[-1]
         elif '.' not in hand:

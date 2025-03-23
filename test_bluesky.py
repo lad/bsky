@@ -332,7 +332,9 @@ class TestGetLikes:
         ('blah.bsky.social', 'blah.bsky.social'),
         ('@blah.bsky.social', 'blah.bsky.social'),
         ('https://bsky.app/profile/testuser.bsky.social', 'testuser.bsky.social'),
-        ('https://bsky.app/profile/other.bsky.social', 'other.bsky.social')
+        ('https://bsky.app/profile/other.bsky.social', 'other.bsky.social'),
+        ('did:plc:alcvibl27vueaibfl7b5oeqg', 'did:plc:alcvibl27vueaibfl7b5oeqg'),
+        ('did:plc:lkajsdljkasd', 'did:plc:lkajsdljkasd')
     ])
     def test_normalize_handle_value(self, setup_method, handle, norm_handle):
         '''Test BlueSky.normalize_handle_value method'''
