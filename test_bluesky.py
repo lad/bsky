@@ -204,8 +204,8 @@ class TestGetLikes:
         return like_get_mock
 
     @pytest.mark.parametrize("minutes_ago", range(11))
-    def test_get_likes_date_limit_reached(self, setup_method, setup_10_gal_mock,
-                                          minutes_ago):
+    def test_get_likes_date_limit_reached_no_count(
+            self, setup_method, setup_10_gal_mock, minutes_ago):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -239,8 +239,8 @@ class TestGetLikes:
                 assert like.created_at == created_at
 
     @pytest.mark.parametrize("count_limit", range(1, 11))
-    def test_get_likes_count_limit_reached(self, setup_method, setup_10_gal_mock,
-                                           count_limit):
+    def test_get_likes_no_date_count_limit_reached(
+            self, setup_method, setup_10_gal_mock, count_limit):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -273,22 +273,55 @@ class TestGetLikes:
                 assert like.created_at is not None
                 assert like.created_at == created_at
 
-    @pytest.mark.skip
-    def test_get_likes_with_cursor(self, setup_method):
+    def test_get_likes_with_cursor(self, setup_method, setup_like_get_mock):
         '''Test when there are multiple pages of likes'''
-        like_mock = mock.Mock()
-        like_mock.viewer.like = ("did", "rkey")
-        like_mock.created_at = "2023-01-01T00:00:00Z"
 
-        self.instance.client.app.bsky.feed.get_actor_likes.side_effect = [
-            mock.Mock(feed=[like_mock], cursor="next_cursor"),
-            mock.Mock(feed=[like_mock], cursor=None)
-        ]
-        self.instance.client.app.bsky.feed.like.get.return_value = \
-            mock.Mock(value=like_mock)
+        gal_mocks_feed = []
 
-        result = list(self.instance.get_likes("2023-01-01"))
-        assert len(result) == 2
+        # Return 6 likes in total in three "pages", i.e. three different cursor
+        # values returned and expect that we get the cursor back again for the
+        # next page of likes. We also save the .feed list from each mock returned
+        # and use it to test against the likes returned from get_likes()
+        def side_effect_atproto_exceptions(params=None):
+            nonlocal gal_mocks_feed
+
+            cursor = params['cursor']
+            if cursor is None:
+                gal_mock = MockHelpers.create_gal_mocks(3)
+                gal_mock.cursor = 3
+            elif cursor == 3:
+                gal_mock = MockHelpers.create_gal_mocks(2)
+                gal_mock.cursor = 5
+            elif cursor == 5:
+                gal_mock = MockHelpers.create_gal_mocks(1)
+                gal_mock.cursor = 6
+            elif cursor == 6:
+                gal_mock = MockHelpers.create_gal_mocks(0)
+                gal_mock.cursor = None
+            gal_mocks_feed.extend(gal_mock.feed)
+            return gal_mock
+
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes',
+                          side_effect=side_effect_atproto_exceptions), \
+            patch.object(self.instance.client.app.bsky.feed.like,
+                         'get', return_value=setup_like_get_mock):
+
+            # Call function under test: get_likes() with no date and no count and
+            # get_date=True
+            likes = list(self.instance.get_likes(None, get_date=True))
+
+            # assert the number of likes returned
+            assert len(likes) == 6
+
+            # assert the contents of the returned likes against the mocks supplied
+            # to get_likes()
+            for like, mock_feed in zip(likes, gal_mocks_feed):
+                assert like.post.viewer.like == mock_feed.post.viewer.like
+                assert like.post.uri == mock_feed.post.uri
+                # get_date was True so we should get back a valid date
+                assert like.created_at is not None
+                assert like.created_at == mock_feed.created_at
 
     def test_get_likes_with_empty_feed(self, setup_method):
         '''Test when the feed is empty'''
@@ -297,18 +330,6 @@ class TestGetLikes:
 
         result = list(self.instance.get_likes("2023-01-01"))
         assert not result
-
-    @pytest.mark.skip
-    def test_get_likes_with_multiple_failures(self, setup_method):
-        '''Test when multiple failures occur but within the limit'''
-        self.instance.client.app.bsky.feed.get_actor_likes.side_effect = [
-            atproto_core.exceptions.AtProtocolError("Error"),
-            mock.Mock(feed=[], cursor=None)
-        ]
-
-        result = list(self.instance.get_likes("2023-01-01"))
-        assert not result
-        assert self.instance.logger.error.called
 
     def test_get_reposters(self, setup_method):
         '''Test the get_reposters method.'''
