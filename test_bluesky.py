@@ -223,8 +223,8 @@ class TestGetLikes:
             # This test is parameterized with the date limit string. It corresponds to
             # the number of likes we will get back from get_likes(). The likes have
             # been setup by setup_10_gal_mock() with created_at fields decreasing by
-            # <n> minutes ago. So a date limit string of "1 minute ago" should give 1
-            # like up to "10 minutes ago" should give 10 likes
+            # <param> minutes ago. So a date limit string of "1 minute ago"
+            # should give 1 like, "10 minutes ago" should give 10 likes
             likes = list(self.instance.get_likes(f"{minutes_ago} minutes ago"))
 
             # assert the number of likes returned
@@ -243,35 +243,25 @@ class TestGetLikes:
             self, setup_method, setup_10_gal_mock, count_limit):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
-                          'get_actor_likes', return_value=setup_10_gal_mock), \
-            patch.object(self.instance.client.app.bsky.feed.like,
-                         'get', side_effect=self.side_effect_feed_like_get):
-
-            # The side effect function self.mock_feed_like_get() saves the created_at
-            # dates in this list. We can assert that we get back these created_at
-            # dates in the likes returned from get_likes()
-            self.like_get_mock_feed_created_at = []
+                          'get_actor_likes', return_value=setup_10_gal_mock):
 
             # Call function under test: get_likes() with a date limit but no count
             # and get_date=False.
             #
-            # This test is parameterized with the date limit string. It corresponds to
-            # the number of likes we will get back from get_likes(). The likes have
-            # been setup by setup_10_gal_mock() with created_at fields decreasing by
-            # <n> minutes ago. So a date limit string of "1 minute ago" should give 1
-            # like up to "10 minutes ago" should give 10 likes
+            # This test is parameterized with a count limit. This is the total number
+            # of likes that we should get back from get_likes(). No date limit string
+            # is provided so the created_at dates of the likes should be ignored
             likes = list(self.instance.get_likes(None, count_limit))
 
             # assert the number of likes returned
             assert len(likes) == count_limit
 
             # assert the contents of the returned likes
-            for like, mock_feed, created_at in zip(likes, setup_10_gal_mock.feed,
-                                                   self.like_get_mock_feed_created_at):
+            for like, mock_feed, in zip(likes, setup_10_gal_mock.feed):
+
                 assert like.post.viewer.like == mock_feed.post.viewer.like
                 assert like.post.uri == mock_feed.post.uri
-                assert like.created_at is not None
-                assert like.created_at == created_at
+                assert like.created_at is None
 
     def test_get_likes_with_cursor(self, setup_method, setup_like_get_mock):
         '''Test when there are multiple pages of likes'''
