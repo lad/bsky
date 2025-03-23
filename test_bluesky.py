@@ -81,7 +81,7 @@ class TestGetLikes:
         like_get_mock.value.created_at = MockHelpers.like_created_at()
         return like_get_mock
 
-    def test_get_likes_failures(self, setup_method):
+    def test_get_likes_gal_exceptions(self, setup_method):
         '''Test BlueSky.get_likes() when get_actor_likes() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
@@ -91,7 +91,7 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_get_likes_failures2(self, setup_method, setup_10_gal_mock):
+    def test_get_likes_get_exceptions(self, setup_method, setup_10_gal_mock):
         '''Test BlueSky.get_likes() when app.bsky.feed.like.get() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -103,10 +103,14 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None, get_date=True))
             assert get_mock.call_count == BlueSky.FAILURE_LIMIT
 
+    def test_get_likes_date_parse_exception(self, setup_method):
+        '''Test when an invalid date is provided'''
+        with pytest.raises(ValueError):
+            list(self.instance.get_likes("invalid-date"))
+
     def test_get_likes_no_date_no_count_no_get_date(self,
                                                     setup_method,
-                                                    setup_gal_mock,
-                                                    setup_like_get_mock):
+                                                    setup_gal_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
         # Mock the API call to return the mock response
         gal_mock, param = setup_gal_mock
@@ -152,7 +156,7 @@ class TestGetLikes:
                 assert like.created_at is not None
                 assert like.created_at == mock_feed.created_at
 
-    def mock_feed_like_get(self, did, rkey):
+    def side_effect_feed_like_get(self, did, rkey):
         '''Create a mock response for bsky.app.feed.like.get()'''
         like_get_mock = MagicMock()
         like_get_mock.value = MagicMock()
@@ -171,7 +175,7 @@ class TestGetLikes:
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
             patch.object(self.instance.client.app.bsky.feed.like,
-                         'get', side_effect=self.mock_feed_like_get):
+                         'get', side_effect=self.side_effect_feed_like_get):
 
             # The side effect function self.mock_feed_like_get() saves the created_at
             # dates in this list. We can assert that we get back these created_at
@@ -199,20 +203,41 @@ class TestGetLikes:
                 assert like.created_at is not None
                 assert like.created_at == created_at
 
-    @pytest.mark.skip
-    def test_get_likes_count_limit_reached(self, setup_method):
-        '''Test when the count limit is reached'''
-        like_mock = mock.Mock()
-        like_mock.viewer.like = ("did", "rkey")
-        like_mock.created_at = "2023-01-01T00:00:00Z"
+    @pytest.mark.parametrize("count_limit", range(1, 11))
+    def test_get_likes_count_limit_reached(self, setup_method, setup_10_gal_mock,
+                                           count_limit):
+        '''Test when the date limit is reached'''
+        # Mock the API call to return the mock response
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes', return_value=setup_10_gal_mock), \
+            patch.object(self.instance.client.app.bsky.feed.like,
+                         'get', side_effect=self.side_effect_feed_like_get):
 
-        self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
-            mock.Mock(feed=[like_mock, like_mock], cursor=None)
-        self.instance.client.app.bsky.feed.like.get.return_value = \
-            mock.Mock(value=like_mock)
+            # The side effect function self.mock_feed_like_get() saves the created_at
+            # dates in this list. We can assert that we get back these created_at
+            # dates in the likes returned from get_likes()
+            self.like_get_mock_feed_created_at = []
 
-        result = list(self.instance.get_likes("2023-01-01", count_limit=1))
-        assert len(result) == 1
+            # Call function under test: get_likes() with a date limit but no count
+            # and get_date=False.
+            #
+            # This test is parameterized with the date limit string. It corresponds to
+            # the number of likes we will get back from get_likes(). The likes have
+            # been setup by setup_10_gal_mock() with created_at fields decreasing by
+            # <n> minutes ago. So a date limit string of "1 minute ago" should give 1
+            # like up to "10 minutes ago" should give 10 likes
+            likes = list(self.instance.get_likes(None, count_limit))
+
+            # assert the number of likes returned
+            assert len(likes) == count_limit
+
+            # assert the contents of the returned likes
+            for like, mock_feed, created_at in zip(likes, setup_10_gal_mock.feed,
+                                                   self.like_get_mock_feed_created_at):
+                assert like.post.viewer.like == mock_feed.post.viewer.like
+                assert like.post.uri == mock_feed.post.uri
+                assert like.created_at is not None
+                assert like.created_at == created_at
 
     @pytest.mark.skip
     def test_get_likes_with_cursor(self, setup_method):
@@ -230,37 +255,6 @@ class TestGetLikes:
 
         result = list(self.instance.get_likes("2023-01-01"))
         assert len(result) == 2
-
-    @pytest.mark.skip
-    def test_get_likes_failure_limit(self, setup_method):
-        '''Test when the failure limit is reached'''
-        self.instance.client.app.bsky.feed.get_actor_likes.side_effect = \
-            atproto_core.exceptions.AtProtocolError("Error")
-
-        result = list(self.instance.get_likes("2023-01-01"))
-        assert not result
-        assert self.instance.logger.error.called
-
-    def test_get_likes_with_invalid_date(self, setup_method):
-        '''Test when an invalid date is provided'''
-        with pytest.raises(ValueError):
-            list(self.instance.get_likes("invalid-date"))
-
-    @pytest.mark.skip
-    def test_get_likes_with_none_date_limit(self, setup_method):
-        '''Test when date_limit_str is None'''
-        like_mock = mock.Mock()
-        like_mock.viewer.like = ("did", "rkey")
-        like_mock.created_at = "2023-01-01T00:00:00Z"
-
-        self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
-            mock.Mock(feed=[like_mock], cursor=None)
-        self.instance.client.app.bsky.feed.like.get.return_value = \
-            mock.Mock(value=like_mock)
-
-        result = list(self.instance.get_likes(None))
-        assert len(result) == 1
-        assert result[0].created_at == "2023-01-01T00:00:00Z"
 
     def test_get_likes_with_empty_feed(self, setup_method):
         '''Test when the feed is empty'''
