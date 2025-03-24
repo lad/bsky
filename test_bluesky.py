@@ -115,6 +115,20 @@ class TestGetLikes:
             with pytest.raises(ex):
                 list(self.instance.get_likes(None))
 
+    @pytest.mark.parametrize("ex", [AssertionError, KeyError, NameError, ValueError])
+    def test_get_likes_non_atproto_exceptions2(self, setup_method,
+                                               setup_10_gal_mock, ex):
+        '''Test BlueSky.get_likes() when get_actor_likes raises non atproto
+           exceptions'''
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes', return_value=setup_10_gal_mock), \
+             patch.object(self.instance.client.app.bsky.feed.like,
+                          'get',
+                          side_effect=ex('Mocked Exception')):
+            # get_likes() is a generator, use list() to ensure it is actually invoked
+            with pytest.raises(ex):
+                list(self.instance.get_likes(None, get_date=True))
+
     def test_get_likes_date_parse_exception(self, setup_method):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
