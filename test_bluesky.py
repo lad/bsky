@@ -104,6 +104,17 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None, get_date=True))
             assert get_mock.call_count == BlueSky.FAILURE_LIMIT
 
+    @pytest.mark.parametrize("ex", [AssertionError, KeyError, NameError, ValueError])
+    def test_get_likes_non_atproto_exceptions(self, setup_method, ex):
+        '''Test BlueSky.get_likes() when get_actor_likes raises non atproto
+           exceptions'''
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes',
+                          side_effect=ex('Mocked Exception')):
+            # get_likes() is a generator, use list() to ensure it is actually invoked
+            with pytest.raises(ex):
+                list(self.instance.get_likes(None))
+
     def test_get_likes_date_parse_exception(self, setup_method):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
@@ -272,7 +283,7 @@ class TestGetLikes:
         # values returned and expect that we get the cursor back again for the
         # next page of likes. We also save the .feed list from each mock returned
         # and use it to test against the likes returned from get_likes()
-        def side_effect_atproto_exceptions(params=None):
+        def side_effect_gal_cursor(params=None):
             nonlocal gal_mocks_feed
 
             cursor = params['cursor']
@@ -286,14 +297,14 @@ class TestGetLikes:
                 gal_mock = MockHelpers.create_gal_mocks(1)
                 gal_mock.cursor = 6
             elif cursor == 6:
-                gal_mock = MockHelpers.create_gal_mocks(0)
+                gal_mock = MockHelpers.create_gal_mocks(2)
                 gal_mock.cursor = None
             gal_mocks_feed.extend(gal_mock.feed)
             return gal_mock
 
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
-                          side_effect=side_effect_atproto_exceptions), \
+                          side_effect=side_effect_gal_cursor), \
             patch.object(self.instance.client.app.bsky.feed.like,
                          'get', return_value=setup_like_get_mock):
 
@@ -302,7 +313,7 @@ class TestGetLikes:
             likes = list(self.instance.get_likes(None, get_date=True))
 
             # assert the number of likes returned
-            assert len(likes) == 6
+            assert len(likes) == 8
 
             # assert the contents of the returned likes against the mocks supplied
             # to get_likes()
