@@ -8,10 +8,12 @@ import atproto_core
 import atproto_core.exceptions
 
 import pytest
+
+from base_test import BaseTest
 from bluesky import BlueSky
 
+
 # pylint: disable=W0613 (unused-argument)
-# pylint: disable=R0904 (too-many-public-methods)
 # pylint: disable=W0201 (attribute-defined-outside-init)
 
 
@@ -48,17 +50,8 @@ class MockHelpers:
         return gal_mock
 
 
-class TestGetLikes:
+class TestGetLikes(BaseTest):
     '''Test BlueSky get_likes() method'''
-    @pytest.fixture
-    def setup_method(self):
-        '''Create an instance of the class containing the get_likes method'''
-        with patch('atproto.Client') as mock_client:
-            mock_client_instance = mock_client.return_value
-            mock_client_instance.login.return_value = None  # Mock the login method
-            self.instance = BlueSky(handle='@testuser.bsky.social',
-                                    password='testpassword')
-
     @pytest.fixture
     def setup_like_mock(self):
         '''Create a mock like object with a valid structure'''
@@ -82,7 +75,7 @@ class TestGetLikes:
         like_get_mock.value.created_at = MockHelpers.like_created_at()
         return like_get_mock
 
-    def test_get_likes_gal_exception_limit(self, setup_method):
+    def test_get_likes_gal_exception_limit(self):
         '''Test BlueSky.get_likes() when get_actor_likes() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
@@ -92,7 +85,7 @@ class TestGetLikes:
             assert not list(self.instance.get_likes(None))
             assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_get_likes_get_exception_limit(self, setup_method, setup_10_gal_mock):
+    def test_get_likes_get_exception_limit(self, setup_10_gal_mock):
         '''Test BlueSky.get_likes() when app.bsky.feed.like.get() raises exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -105,7 +98,7 @@ class TestGetLikes:
             assert get_mock.call_count == BlueSky.FAILURE_LIMIT
 
     @pytest.mark.parametrize("ex", [AssertionError, KeyError, NameError, ValueError])
-    def test_get_likes_non_atproto_exceptions(self, setup_method, ex):
+    def test_get_likes_non_atproto_exceptions(self, ex):
         '''Test BlueSky.get_likes() when get_actor_likes raises non atproto
            exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
@@ -116,8 +109,7 @@ class TestGetLikes:
                 list(self.instance.get_likes(None))
 
     @pytest.mark.parametrize("ex", [AssertionError, KeyError, NameError, ValueError])
-    def test_get_likes_non_atproto_exceptions2(self, setup_method,
-                                               setup_10_gal_mock, ex):
+    def test_get_likes_non_atproto_exceptions2(self, setup_10_gal_mock, ex):
         '''Test BlueSky.get_likes() when get_actor_likes raises non atproto
            exceptions'''
         with patch.object(self.instance.client.app.bsky.feed,
@@ -129,14 +121,12 @@ class TestGetLikes:
             with pytest.raises(ex):
                 list(self.instance.get_likes(None, get_date=True))
 
-    def test_get_likes_date_parse_exception(self, setup_method):
+    def test_get_likes_date_parse_exception(self):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
             list(self.instance.get_likes("invalid-date"))
 
-    def test_get_likes_no_date_no_count_no_get_date(self,
-                                                    setup_method,
-                                                    setup_gal_mock):
+    def test_get_likes_no_date_no_count_no_get_date(self, setup_gal_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
         gal_mock, param = setup_gal_mock
         with patch.object(self.instance.client.app.bsky.feed,
@@ -156,7 +146,7 @@ class TestGetLikes:
                 # should not get back a valid created_at field.
                 assert like.created_at is None
 
-    def test_get_likes_no_date_no_count_get_date(self, setup_method,
+    def test_get_likes_no_date_no_count_get_date(self,
                                                  setup_gal_mock, setup_like_get_mock):
         '''Test the get_likes method, no date, no count, get_date True'''
         gal_mock, param = setup_gal_mock
@@ -181,7 +171,7 @@ class TestGetLikes:
                 assert like.created_at == mock_feed.created_at
 
     def test_get_likes_no_date_no_count_get_date_with_retries(
-            self, setup_method, setup_gal_mock, setup_like_get_mock):
+            self, setup_gal_mock, setup_like_get_mock):
         '''Test the get_likes method, no date, no count, get_date True when
            some exceptions occur focing retries'''
         gal_mock, param = setup_gal_mock
@@ -229,8 +219,8 @@ class TestGetLikes:
         return like_get_mock
 
     @pytest.mark.parametrize("minutes_ago", range(11))
-    def test_get_likes_date_limit_reached_no_count(
-            self, setup_method, setup_10_gal_mock, minutes_ago):
+    def test_get_likes_date_limit_reached_no_count(self, setup_10_gal_mock,
+                                                   minutes_ago):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -264,8 +254,8 @@ class TestGetLikes:
                 assert like.created_at == created_at
 
     @pytest.mark.parametrize("count_limit", range(1, 11))
-    def test_get_likes_no_date_count_limit_reached(
-            self, setup_method, setup_10_gal_mock, count_limit):
+    def test_get_likes_no_date_count_limit_reached(self, setup_10_gal_mock,
+                                                   count_limit):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock):
@@ -288,7 +278,7 @@ class TestGetLikes:
                 assert like.post.uri == mock_feed.post.uri
                 assert like.created_at is None
 
-    def test_get_likes_with_cursor(self, setup_method, setup_like_get_mock):
+    def test_get_likes_with_cursor(self, setup_like_get_mock):
         '''Test when there are multiple pages of likes'''
 
         gal_mocks_feed = []
@@ -338,7 +328,7 @@ class TestGetLikes:
                 assert like.created_at is not None
                 assert like.created_at == mock_feed.created_at
 
-    def test_get_likes_with_empty_feed(self, setup_method):
+    def test_get_likes_with_empty_feed(self):
         '''Test when the feed is empty'''
         self.instance.client.app.bsky.feed.get_actor_likes.return_value = \
             mock.Mock(feed=[], cursor=None)
