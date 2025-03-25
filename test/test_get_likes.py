@@ -10,7 +10,6 @@ import atproto_core.exceptions
 import pytest
 
 from base_test import BaseTest
-from bluesky import BlueSky
 
 
 # pylint: disable=W0613 (unused-argument)
@@ -82,8 +81,9 @@ class TestGetLikes(BaseTest):
                           side_effect=atproto_core.exceptions.AtProtocolError(
                                                 'Mocked Exception')) as gal_mock:
             # get_likes() is a generator, use list() to ensure it is actually invoked
-            assert not list(self.instance.get_likes(None))
-            assert gal_mock.call_count == BlueSky.FAILURE_LIMIT
+            with pytest.raises(IOError):
+                list(self.instance.get_likes(None))
+            assert gal_mock.call_count == self.instance.FAILURE_LIMIT
 
     def test_get_likes_get_exception_limit(self, setup_10_gal_mock):
         '''Test BlueSky.get_likes() when app.bsky.feed.like.get() raises exceptions'''
@@ -94,8 +94,9 @@ class TestGetLikes(BaseTest):
                           side_effect=atproto_core.exceptions.AtProtocolError(
                                                 'Mocked Exception')) as get_mock:
             # get_likes() is a generator, use list() to ensure it is actually invoked
-            assert not list(self.instance.get_likes(None, get_date=True))
-            assert get_mock.call_count == BlueSky.FAILURE_LIMIT
+            with pytest.raises(IOError):
+                list(self.instance.get_likes(None, get_date=True))
+            assert get_mock.call_count == self.instance.FAILURE_LIMIT
 
     @pytest.mark.parametrize("ex", [AssertionError, KeyError, NameError, ValueError])
     def test_get_likes_non_atproto_exceptions(self, ex):

@@ -99,7 +99,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+            raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
         return []
 
@@ -210,7 +210,16 @@ class BlueSky:
     @normalize_handle
     def get_profile(self, handle):
         '''Return the profile of the given user handle'''
-        return self.client.get_profile(handle)
+        num_failures = 0
+
+        while num_failures < self.FAILURE_LIMIT:
+            try:
+                return self.client.get_profile(handle)
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_post(self, uri):
         '''Get details of the post at the given uri'''
