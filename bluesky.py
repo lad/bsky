@@ -190,7 +190,22 @@ class BlueSky:
 
     def delete_post(self, uri):
         '''Delete the post at the given uri'''
-        rsp = self.client.delete_post(uri)
+        num_failures = 0
+
+        while num_failures < self.FAILURE_LIMIT:
+            try:
+                rsp = self.client.delete_post(uri)
+                if rsp:
+                    break
+                else:
+                    num_failures += 1
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+        else:
+            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+            rsp = False
+
         return rsp
 
     @normalize_handle
