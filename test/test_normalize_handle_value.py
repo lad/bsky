@@ -6,7 +6,7 @@ from base_test import BaseTest
 
 
 class TestNormalizeHandleValues(BaseTest):
-    '''Test BlueSky get_likes() method'''
+    '''Test BlueSky normalize_handle_value() method'''
     @pytest.mark.parametrize("handle, norm_handle", [
         (None, 'testuser.bsky.social'),
         ('testuser', 'testuser.bsky.social'),
@@ -20,5 +20,5 @@ class TestNormalizeHandleValues(BaseTest):
         ('did:plc:lkajsdljkasd', 'did:plc:lkajsdljkasd')
     ])
     def test_normalize_handle_value(self, handle, norm_handle):
-        '''Test BlueSky.normalize_handle_value method'''
+        '''Test BlueSky.normalize_handle_value() method'''
         assert self.instance.normalize_handle_value(handle) == norm_handle

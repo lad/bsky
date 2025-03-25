@@ -1,4 +1,4 @@
-'''pytest init python include path'''
+'''pytest init for python include path'''
 import sys
 from pathlib import Path
 

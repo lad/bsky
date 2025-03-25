@@ -6,9 +6,9 @@ from base_test import BaseTest
 
 
 class TestPostText(BaseTest):
-    '''Test BlueSky get_likes() method'''
+    '''Test BlueSky post_text() method'''
     def test_post_text(self):
-        '''Test the post_text method.'''
+        '''Test the post_text() method.'''
         mock_post = MagicMock()
         mock_post.uri = 'at://example/post/1'
 

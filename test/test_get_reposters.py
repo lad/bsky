@@ -6,9 +6,9 @@ from base_test import BaseTest
 
 
 class TestGetReposters(BaseTest):
-    '''Test BlueSky get_likes() method'''
+    '''Test BlueSky get_reposters() method'''
     def test_get_reposters(self):
-        '''Test the get_reposters method.'''
+        '''Test the get_reposters() method.'''
         mock_post = MagicMock()
         mock_post.repost_count = 1
         mock_post.uri = 'at://example/post/1'

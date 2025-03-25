@@ -6,9 +6,9 @@ from base_test import BaseTest
 
 
 class TestGetProfile(BaseTest):
-    '''Test BlueSky get_likes() method'''
+    '''Test BlueSky get_profile() method'''
     def test_get_profile(self):
-        '''Test the get_profile method.'''
+        '''Test the get_profile() method.'''
         mock_profile = MagicMock()
         mock_profile.did = 'did:example:123'
 

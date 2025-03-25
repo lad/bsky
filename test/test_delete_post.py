@@ -9,9 +9,9 @@ from base_test import BaseTest
 
 
 class TestDeletePost(BaseTest):
-    '''Test BlueSky get_likes() method'''
+    '''Test BlueSky delete_post() method'''
     def test_delete_post(self):
-        '''Test the delete_post method.'''
+        '''Test the delete_post() method.'''
         mock_response = MagicMock()
         mock_response.status_code = 200
 

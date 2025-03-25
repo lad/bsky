@@ -12,7 +12,7 @@ class BaseTest:
     '''Common base class for BlueSky test classes'''
     @pytest.fixture(autouse=True)
     def setup(self):
-        '''Create an instance of the class containing the get_likes method'''
+        '''Create an instance of the BlueSky class mocking out the login method'''
         with patch('atproto.Client') as mock_client:
             mock_client_instance = mock_client.return_value
             mock_client_instance.login.return_value = None  # Mock the login method
