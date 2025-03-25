@@ -197,8 +197,7 @@ class BlueSky:
                 rsp = self.client.delete_post(uri)
                 if rsp:
                     break
-                else:
-                    num_failures += 1
+                num_failures += 1
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)

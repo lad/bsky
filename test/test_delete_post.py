@@ -24,6 +24,7 @@ class TestDeletePost(BaseTest):
     def test_delete_post_failed(self):
         '''Test the delete_post() method for failed delete with exceptions'''
         self.num_exceptions = 0
+
         def side_effect_atproto_exception(*args, **kwargs):
             self.num_exceptions += 1
             raise atproto_core.exceptions.AtProtocolError('Mocked Exception')
@@ -38,6 +39,7 @@ class TestDeletePost(BaseTest):
     def test_delete_post_partial_failure(self):
         '''Test the delete_post() method for successful delete with some exceptions'''
         self.num_exceptions = 0
+
         def side_effect_atproto_exception(*args, **kwargs):
             self.num_exceptions += 1
             if self.num_exceptions < self.instance.FAILURE_LIMIT - 1:
