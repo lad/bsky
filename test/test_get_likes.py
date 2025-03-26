@@ -10,6 +10,7 @@ import atproto_core.exceptions
 import pytest
 
 from base_test import BaseTest
+from partial_failure import PartialFailure
 
 
 # pylint: disable=W0613 (unused-argument)
@@ -176,20 +177,11 @@ class TestGetLikes(BaseTest):
         '''Test the get_likes method, no date, no count, get_date True when
            some exceptions occur focing retries'''
         gal_mock, param = setup_gal_mock
-        num_exceptions = 2
-
-        # Throw exceptions twice from the get_actor_likes mock. This should force
-        # retries in get_likes(). On the third try it will return the mock object.
-        def side_effect_atproto_exceptions(params=None):
-            nonlocal num_exceptions
-            num_exceptions -= 1
-            if num_exceptions >= 0:
-                raise atproto_core.exceptions.AtProtocolError('Mocked Exception')
-            return gal_mock
 
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
-                          side_effect=side_effect_atproto_exceptions), \
+                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                                                     gal_mock)) as mock_exception, \
             patch.object(self.instance.client.app.bsky.feed.like,
                          'get', return_value=setup_like_get_mock):
 
@@ -199,6 +191,8 @@ class TestGetLikes(BaseTest):
 
             # assert the number of likes returned
             assert len(likes) == param
+            # assert the number of exceptions caught
+            assert mock_exception.call_count == self.instance.FAILURE_LIMIT
 
             # assert the contents of the returned likes
             for like, mock_feed in zip(likes, gal_mock.feed):

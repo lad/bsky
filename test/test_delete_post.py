@@ -6,6 +6,7 @@ import pytest
 import atproto_core
 
 from base_test import BaseTest
+from partial_failure import PartialFailure
 
 # pylint: disable=W0613 (unused-argument)
 # pylint: disable=W0201 (attribute-defined-outside-init)
@@ -13,42 +14,27 @@ from base_test import BaseTest
 
 class TestDeletePost(BaseTest):
     '''Test BlueSky delete_post() method for return values'''
-    @pytest.mark.parametrize("return_value", [True, False])
-    def test_delete_post(self, return_value):
+    def test_delete_post_succeeded(self):
         '''Test the delete_post() method.'''
         with patch.object(self.instance.client,
-                          'delete_post', return_value=return_value):
+                          'delete_post', return_value=True):
             response = self.instance.delete_post('at://example/post/1')
-            assert response == return_value
+            assert response
 
     def test_delete_post_failed(self):
         '''Test the delete_post() method for failed delete with exceptions'''
-        self.num_exceptions = 0
-
-        def side_effect_atproto_exception(*args, **kwargs):
-            self.num_exceptions += 1
-            raise atproto_core.exceptions.AtProtocolError('Mocked Exception')
-
         with patch.object(self.instance.client,
                           'delete_post', return_value=False,
-                          side_effect=side_effect_atproto_exception):
-            response = self.instance.delete_post('at://example/post/1')
-            assert not response
-            assert self.num_exceptions == self.instance.FAILURE_LIMIT
+                          side_effect=atproto_core.exceptions.AtProtocolError(
+                              'Mocked Exception')):
+            with pytest.raises(IOError):
+                self.instance.delete_post('at://example/post/1')
 
     def test_delete_post_partial_failure(self):
         '''Test the delete_post() method for successful delete with some exceptions'''
-        self.num_exceptions = 0
-
-        def side_effect_atproto_exception(*args, **kwargs):
-            self.num_exceptions += 1
-            if self.num_exceptions < self.instance.FAILURE_LIMIT - 1:
-                raise atproto_core.exceptions.AtProtocolError('Mocked Exception')
-
-            return True
-
         with patch.object(self.instance.client,
                           'delete_post', return_value=False,
-                          side_effect=side_effect_atproto_exception):
+                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                                                     True)):
             response = self.instance.delete_post('at://example/post/1')
             assert response

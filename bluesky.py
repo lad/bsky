@@ -159,9 +159,18 @@ class BlueSky:
 
     def post_text(self, text):
         '''Post the given text and return the resulting post uri'''
-        post = self.client.send_post(text)
-        return post.uri
+        num_failures = 0
+        while num_failures < self.FAILURE_LIMIT:
+            try:
+                post = self.client.send_post(text)
+                return post.uri
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
 
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+
+    # TODO: implement retries
     def post_rich(self, text, mentions):
         '''Post the given text with the given user handle mentions'''
         tb = atproto.client_utils.TextBuilder()
@@ -172,6 +181,7 @@ class BlueSky:
         post = self.client.send_post(tb)
         return post.uri
 
+    # TODO: implement retries
     def post_image(self, text, filename, alt):
         '''Post the given image with the given text and given alt-text'''
         img_data = self._get_image_data(filename)
@@ -196,16 +206,13 @@ class BlueSky:
             try:
                 rsp = self.client.delete_post(uri)
                 if rsp:
-                    break
+                    return rsp
                 num_failures += 1
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
-            rsp = False
 
-        return rsp
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def get_profile(self, handle):
@@ -218,8 +225,8 @@ class BlueSky:
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_post(self, uri):
         '''Get details of the post at the given uri'''
@@ -240,8 +247,7 @@ class BlueSky:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
         else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
-            rsp = None
+            raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
         return rsp
 
@@ -263,7 +269,7 @@ class BlueSky:
                                                dateparse.BLUESKY_DATE_FORMAT)
                         if dt < date_limit:
                             self.logger.info('Date limit reached')
-                            return
+                            return None
                     if reply and not view.reply:
                         continue
                     if original and view.reply:
@@ -274,7 +280,7 @@ class BlueSky:
                         count += 1
                         if count > count_limit:
                             self.logger.info('Count limit reached')
-                            return
+                            return None
 
                     view.post.reply = view.reply
                     yield view.post
@@ -283,12 +289,12 @@ class BlueSky:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = feed.cursor
                 else:
-                    break
+                    return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_post_likes(self, uri):
         '''A generator to yield details of the likes for a given post uri'''
@@ -298,19 +304,20 @@ class BlueSky:
         while num_failures < BlueSky.FAILURE_LIMIT:
             try:
                 rsp = self.client.get_likes(uri, cursor=cursor)
-
                 yield from rsp.likes
+
                 if rsp.cursor:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
-                    break
+                    return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+
+    # TODO: implement retries
     def get_unread_notifications_count(self):
         '''Return a count of the unread notifications for the authenticated user'''
         return self.client.app.bsky.notification.get_unread_count()
@@ -336,13 +343,13 @@ class BlueSky:
                             # limit, we assume the rest of the notifications are
                             # older, we're done
                             self.logger.info('Date limit reached')
-                            return
+                            return None
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
                             self.logger.info('Count limit reached')
-                            return
+                            return None
 
                     if notif.reason == 'reply':
                         post = self.get_post(notif.record.reply.parent.uri)
@@ -356,17 +363,17 @@ class BlueSky:
                 if rsp.cursor:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
-                else:
-                    break
+                elif mark_read:
+                    # TODO should we consider implementing mark_read when date or
+                    # count limit is reached above?
+                    seen_at = self.client.get_current_time_iso()
+                    self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
+                    return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
 
-        if mark_read:
-            seen_at = self.client.get_current_time_iso()
-            self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def search(self, term, author, date_limit_str, sort_order, is_follow, is_follower):
         '''A generator to yield posts that match the given search terms'''
@@ -410,12 +417,12 @@ class BlueSky:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
-                    break
+                    return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def profile_did(self, handle):
@@ -449,12 +456,12 @@ class BlueSky:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
-                    break
+                    return []
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     @normalize_handle
     def followers(self, handle):
@@ -471,12 +478,12 @@ class BlueSky:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                 else:
-                    break
+                    return []
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
-        else:
-            self.logger.error("Giving up, more than %s failures", self.FAILURE_LIMIT)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def _login(self):
         self.client.login(self.handle, self._password)
