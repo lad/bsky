@@ -6,7 +6,7 @@ import atproto_core
 
 
 class PartialFailure:
-    '''PartialFailure class to simulate several atproto exceptions being raised
+    '''Test class to simulate several atproto exceptions being raised
        but less than the failure limit. This will cause retries but not fail the
        operation'''
     def __init__(self, failure_limit, return_value):

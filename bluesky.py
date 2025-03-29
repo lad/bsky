@@ -18,6 +18,8 @@ import dateparse
 # Ignore pylint peevishness. These kinds of restrictions are what ruined many
 # python and ruby codebases.
 
+# TODO: Reconsider return values/exceptions for resources not found
+
 
 def normalize_handle(func):
     '''Decorator to normalize a handle argument'''
@@ -170,16 +172,29 @@ class BlueSky:
 
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
-    # TODO: implement retries
     def post_rich(self, text, mentions):
         '''Post the given text with the given user handle mentions'''
+        details = self.build_post(text, mentions)
+
+        num_failures = 0
+        while num_failures < self.FAILURE_LIMIT:
+            try:
+                post = self.client.send_post(details)
+                return post.uri
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
+
+    def build_post(self, text, mentions):
+        '''Insert the given text and user mentions into an atproto TextBuilder'''
         tb = atproto.client_utils.TextBuilder()
         tb.text(f"{text}\n")
         for handle in mentions:
             tb.mention(f"@{handle}", self.profile_did(handle))
             tb.text("\n")
-        post = self.client.send_post(tb)
-        return post.uri
+        return tb
 
     # TODO: implement retries
     def post_image(self, text, filename, alt):
@@ -222,6 +237,10 @@ class BlueSky:
         while num_failures < self.FAILURE_LIMIT:
             try:
                 return self.client.get_profile(handle)
+            except atproto_client.exceptions.BadRequestError as ex:
+                # Could they not just return a 404 like everyone else. FFS.
+                if ex.response.status_code == 400:
+                    return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
@@ -322,6 +341,8 @@ class BlueSky:
         '''Return a count of the unread notifications for the authenticated user'''
         return self.client.app.bsky.notification.get_unread_count()
 
+    # TODO: Called without limits this will churn for a long time. Try a different
+    # approach maybe?
     def get_notifications(self, date_limit_str=None, count_limit=None,
                           mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''

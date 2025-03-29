@@ -502,7 +502,10 @@ class BlueSkyCommandLine:
     def profile_cmd(self, handle):
         '''Print the profile entry of the given user handle'''
         profile = self.bs.get_profile(handle)
-        self._print_profile(profile, full=True)
+        if profile:
+            self._print_profile(profile, full=True)
+        else:
+            print(f"{handle} profile not found")
 
     def notifications_cmd(self, date_limit, show_all, count_limit, mark):
         '''Print the unread, or all, notifications received, optionally since the
