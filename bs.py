@@ -459,7 +459,12 @@ class BlueSkyCommandLine:
         '''Print the like details of the posts found by the request details
            like: date_limit, count, reply vs. original post'''
         count = 0
-        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
+        # Don't pass count limit to .get_posts() use count_limit to count the
+        # number of liked posts. This could potentially retrieve many posts if
+        # there are a lot of posts without any likes.
+        for post in self.bs.get_posts(req.handle,
+                                      date_limit_str=req.date_limit,
+                                      count_limit=None,
                                       reply=req.reply,
                                       original=req.original):
             if post.like_count:
@@ -469,7 +474,7 @@ class BlueSkyCommandLine:
                     if req.full:
                         self._print_post_entry(post)
 
-            if count >= req.count_limit:
+            if req.count_limit and count >= req.count_limit:
                 break
 
     def most_likes_cmd(self, req):
