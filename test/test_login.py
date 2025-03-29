@@ -17,23 +17,23 @@ class TestBlueSkyLogin:
     '''Test BlueSky login failures'''
 
     @patch('atproto.Client')
-    def test_login_with_exception_failures(self, client):
+    def test_login_with_exception_failures(self, mock_client):
         '''Test the BlueSky instantation/login with exception failures'''
-        client_instance = client.return_value
-        client_instance.login.side_effect = \
-                atproto_core.exceptions.AtProtocolError('Mocked Exception')
+        mock_client_instance = mock_client.return_value
+        mock_client_instance.login.side_effect = \
+            atproto_core.exceptions.AtProtocolError('Mocked Exception')
 
         with pytest.raises(IOError):
             self.instance = BlueSky(handle='@testuser.bsky.social',
                                     password='testpassword')
 
-        assert client_instance.login.call_count == BlueSky.FAILURE_LIMIT
+        assert mock_client_instance.login.call_count == BlueSky.FAILURE_LIMIT
 
     @patch('atproto.Client')
-    def test_login_with_retries(self, client):
+    def test_login_with_retries(self, mock_client):
         '''Test the BlueSky instantation/login with partial failure causing retries'''
-        client.return_value.login.side_effect = \
-                PartialFailure(BlueSky.FAILURE_LIMIT, None)
+        mock_client.return_value.login.side_effect = \
+            PartialFailure(BlueSky.FAILURE_LIMIT, None)
 
         handle = '@testuser.bsky.social'
         password = 'testpassword'
