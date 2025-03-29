@@ -505,7 +505,17 @@ class BlueSky:
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def _login(self):
-        self.client.login(self.handle, self._password)
+        num_failures = 0
+
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                self.client.login(self.handle, self._password)
+                return
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def _print_at_protocol_error(self, ex):
         self.logger.error(type(ex))

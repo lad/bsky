@@ -14,12 +14,14 @@ from partial_failure import PartialFailure
 class TestPostRich(BaseTest):
     '''Test BlueSky rich() method'''
     def random_profile_name(self):
+        '''Return an random fake profile name'''
         return f"{''.join(random.sample(string.ascii_letters, 16))}" \
                f"{random.randint(20000, 100000)}" \
                f".bsky.social"
 
     @pytest.fixture(params=range(1, 11))
     def setup_random_profile_names(self, request):
+        '''Return a list of random profile names'''
         return [self.random_profile_name()] * request.param
 
     def test_post_rich(self, setup_random_profile_names):
@@ -36,7 +38,7 @@ class TestPostRich(BaseTest):
             assert mock_send_post.call_args[0][0] == mock_text
 
     def test_post_rich_exception_limit(self, setup_random_profile_names):
-        '''Test the rich() method with exceptions failure'''
+        '''Test the rich() method with exception failure'''
         mock_text = 'some mock rich text\n@handle\nhttps://example.com/foo/bar/\n'
 
         with patch.object(self.instance.client, 'send_post',
