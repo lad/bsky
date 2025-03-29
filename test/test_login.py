@@ -16,29 +16,28 @@ from bluesky import BlueSky
 class TestBlueSkyLogin:
     '''Test BlueSky login failures'''
 
-    def test_login_with_exception_failures(self):
+    @patch('atproto.Client')
+    def test_login_with_exception_failures(self, client):
         '''Test the BlueSky instantation/login with exception failures'''
-        with patch('atproto.Client') as mock_client:
-            mock_client_instance = mock_client.return_value
-            mock_client_instance.login.side_effect = \
+        client_instance = client.return_value
+        client_instance.login.side_effect = \
                 atproto_core.exceptions.AtProtocolError('Mocked Exception')
 
-            with pytest.raises(IOError):
-                self.instance = BlueSky(handle='@testuser.bsky.social',
-                                        password='testpassword')
+        with pytest.raises(IOError):
+            self.instance = BlueSky(handle='@testuser.bsky.social',
+                                    password='testpassword')
 
-            assert mock_client_instance.login.call_count == BlueSky.FAILURE_LIMIT
+        assert client_instance.login.call_count == BlueSky.FAILURE_LIMIT
 
-    def test_login_with_retries(self):
+    @patch('atproto.Client')
+    def test_login_with_retries(self, client):
         '''Test the BlueSky instantation/login with partial failure causing retries'''
-        with patch('atproto.Client') as mock_client:
-            mock_client_instance = mock_client.return_value
-            mock_client_instance.login.side_effect = \
+        client.return_value.login.side_effect = \
                 PartialFailure(BlueSky.FAILURE_LIMIT, None)
 
-            handle = '@testuser.bsky.social'
-            password = 'testpassword'
-            self.instance = BlueSky(handle=handle, password=password)
+        handle = '@testuser.bsky.social'
+        password = 'testpassword'
+        self.instance = BlueSky(handle=handle, password=password)
 
-            assert self.instance
-            assert self.instance.handle == handle
+        assert self.instance
+        assert self.instance.handle == handle
