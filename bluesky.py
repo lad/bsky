@@ -341,8 +341,6 @@ class BlueSky:
         '''Return a count of the unread notifications for the authenticated user'''
         return self.client.app.bsky.notification.get_unread_count()
 
-    # TODO: Called without limits this will churn for a long time. Try a different
-    # approach maybe?
     def get_notifications(self, date_limit_str=None, count_limit=None,
                           mark_read=False):
         '''A generator to yield notifications for the authenticated handle'''
@@ -389,7 +387,7 @@ class BlueSky:
                     # count limit is reached above?
                     seen_at = self.client.get_current_time_iso()
                     self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
-                    return None
+                return None
             except atproto_core.exceptions.AtProtocolError as ex:
                 num_failures += 1
                 self._print_at_protocol_error(ex)
