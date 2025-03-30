@@ -4,9 +4,9 @@ from unittest.mock import patch
 import atproto_core
 
 import pytest
-from partial_failure import PartialFailure
 
 from bluesky import BlueSky
+from mocks import PartialFailure
 
 
 # pylint: disable=W0201 (attribute-defined-outside-init)
