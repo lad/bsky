@@ -32,7 +32,8 @@ class TestBlueSkyLogin:
     @patch('atproto.Client')
     def test_login_with_retries(self, mock_client):
         '''Test the BlueSky instantation/login with partial failure causing retries'''
-        mock_client.return_value.login.side_effect = \
+        mock_client_instance = mock_client.return_value
+        mock_client_instance.login.side_effect = \
             PartialFailure(BlueSky.FAILURE_LIMIT, None)
 
         handle = '@testuser.bsky.social'
@@ -41,3 +42,4 @@ class TestBlueSkyLogin:
 
         assert self.instance
         assert self.instance.handle == handle
+        assert mock_client_instance.login.call_count == BlueSky.FAILURE_LIMIT
