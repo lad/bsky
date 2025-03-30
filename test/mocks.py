@@ -41,21 +41,20 @@ class PartialFailure:
 
 
 class MockUtils:
-    '''Various convenience methods for building mocks or mock data'''
+    '''Various helper methods for building mocks and fixtures'''
     @staticmethod
     def random_profile_name():
         '''Return an random fake profile name'''
         return f"{''.join(random.sample(string.ascii_letters, 16))}" \
-               f"{random.randint(20000, 100000)}" \
-               f".bsky.social"
-
-    @staticmethod
-    def random_did():
-        '''Return an random fake DID'''
-        return f"did:plc:{''.join(random.sample(string.ascii_letters, 24))}"
-
+                f"{random.randint(20000, 100000)}" \
+                f".bsky.social"
 
 @pytest.fixture(params=range(1, 11))
-def setup_random_profile_names(request):
+def random_profile_names(request):
     '''Return a list of random profile names'''
     return [MockUtils.random_profile_name()] * request.param
+
+@pytest.fixture
+def random_did():
+    '''Return an random fake DID'''
+    return f"did:plc:{''.join(random.sample(string.ascii_letters, 24))}"
