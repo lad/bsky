@@ -6,10 +6,10 @@ import string
 
 import pytest
 
-from base_test import BaseTest
+import mocks
 
 
-class TestBuildPost(BaseTest):
+class TestBuildPost(mocks.BaseTest):
     '''Test BlueSky rich() method'''
     def random_profile_name(self):
         '''Return an random fake profile name'''

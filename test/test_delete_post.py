@@ -5,14 +5,13 @@ import pytest
 
 import atproto_core
 
-from base_test import BaseTest
-from partial_failure import PartialFailure
+import mocks
 
 # pylint: disable=W0613 (unused-argument)
 # pylint: disable=W0201 (attribute-defined-outside-init)
 
 
-class TestDeletePost(BaseTest):
+class TestDeletePost(mocks.BaseTest):
     '''Test BlueSky delete_post() method for return values'''
     def test_delete_post_succeeded(self):
         '''Test the delete_post() method.'''
@@ -34,7 +33,7 @@ class TestDeletePost(BaseTest):
         '''Test the delete_post() method for successful delete with some exceptions'''
         with patch.object(self.instance.client,
                           'delete_post', return_value=False,
-                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                          side_effect=mocks.PartialFailure(self.instance.FAILURE_LIMIT,
                                                      True)):
             response = self.instance.delete_post('at://example/post/1')
             assert response

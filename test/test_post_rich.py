@@ -7,11 +7,10 @@ import string
 import atproto_core
 import pytest
 
-from base_test import BaseTest
-from partial_failure import PartialFailure
+import mocks
 
 
-class TestPostRich(BaseTest):
+class TestPostRich(mocks.BaseTest):
     '''Test BlueSky rich() method'''
     def random_profile_name(self):
         '''Return an random fake profile name'''
@@ -57,8 +56,9 @@ class TestPostRich(BaseTest):
         mock_text = 'some mock rich text\n@handle\nhttps://example.com/foo/bar/\n'
 
         with patch.object(self.instance.client, 'send_post',
-                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
-                                                     mock_post)) as mock_send_post, \
+                          side_effect=mocks.PartialFailure(
+                              self.instance.FAILURE_LIMIT, mock_post)) \
+                                      as mock_send_post, \
              patch.object(self.instance, 'build_post', return_value=mock_text):
             uri = self.instance.post_rich('Hello', setup_random_profile_names)
             assert uri == mock_post.uri

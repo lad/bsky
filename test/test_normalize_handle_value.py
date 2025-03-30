@@ -2,10 +2,10 @@
 
 import pytest
 
-from base_test import BaseTest
+import mocks
 
 
-class TestNormalizeHandleValues(BaseTest):
+class TestNormalizeHandleValues(mocks.BaseTest):
     '''Test BlueSky normalize_handle_value() method'''
     @pytest.mark.parametrize("handle, norm_handle", [
         (None, 'testuser.bsky.social'),

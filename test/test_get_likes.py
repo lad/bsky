@@ -9,8 +9,7 @@ import atproto_core.exceptions
 
 import pytest
 
-from base_test import BaseTest
-from partial_failure import PartialFailure
+import mocks
 
 
 # pylint: disable=W0613 (unused-argument)
@@ -50,7 +49,7 @@ class MockHelpers:
         return gal_mock
 
 
-class TestGetLikes(BaseTest):
+class TestGetLikes(mocks.BaseTest):
     '''Test BlueSky get_likes() method'''
     @pytest.fixture
     def setup_like_mock(self):
@@ -180,8 +179,9 @@ class TestGetLikes(BaseTest):
 
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
-                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
-                                                     gal_mock)) as mock_exception, \
+                          side_effect=mocks.PartialFailure(
+                              self.instance.FAILURE_LIMIT, gal_mock)) \
+                                      as mock_exception, \
             patch.object(self.instance.client.app.bsky.feed.like,
                          'get', return_value=setup_like_get_mock):
 
