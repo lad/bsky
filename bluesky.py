@@ -105,7 +105,6 @@ class BlueSky:
 
         return []
 
-    # TODO: Finish test_get_mutuals()
     @normalize_handle
     def get_mutuals(self, handle, flag):
         '''A generator to yield entries for users that the given user follows
@@ -341,7 +340,15 @@ class BlueSky:
     # TODO: implement retries
     def get_unread_notifications_count(self):
         '''Return a count of the unread notifications for the authenticated user'''
-        return self.client.app.bsky.notification.get_unread_count()
+        num_failures = 0
+        while num_failures < BlueSky.FAILURE_LIMIT:
+            try:
+                return self.client.app.bsky.notification.get_unread_count()
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+
+        raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_notifications(self, date_limit_str=None, count_limit=None,
                           mark_read=False):
