@@ -32,11 +32,9 @@ class TestData:
              MockUtils.profile('handle5'), MockUtils.profile('handle6'),
              MockUtils.profile('handle7'), MockUtils.profile('handle8')],
 
-            ['handle3', 'handle4'],
-
-            ['handle6', 'handle7', 'handle8'],
-
-            ['handle1', 'handle2', 'handle5'])]
+            ['handle3', 'handle4'],                 # follows_not_followers
+            ['handle6', 'handle7', 'handle8'],      # followers_not_follows
+            ['handle1', 'handle2', 'handle5'])]     # both follows and followers
 
 
 class TestGetMutuals(BaseTest):
@@ -61,7 +59,7 @@ class TestGetMutuals(BaseTest):
         followers_range.remove(90)
         both_range.remove(90)
 
-        # Make up the mocks and handles to test against
+        # Create the mocks and handles to test against
         follows = [MockUtils.profile(f"handle{i}") for i in follows_range]
         followers = [MockUtils.profile(f"handle{i}") for i in followers_range]
         follows_not_followers = [f"handle{i}" for i in follows_not_followers_range]
