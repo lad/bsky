@@ -5,10 +5,11 @@ from unittest.mock import patch, MagicMock
 import atproto_core
 import pytest
 
-import mocks
+from base_test import BaseTest
+from partial_failure import PartialFailure
 
 
-class TestGetProfile(mocks.BaseTest):
+class TestGetProfile(BaseTest):
     '''Test BlueSky get_profile() method'''
     def test_get_profile(self):
         '''Test the get_profile() method.'''
@@ -38,9 +39,8 @@ class TestGetProfile(mocks.BaseTest):
 
         with patch.object(self.instance.client,
                           'get_profile',
-                          side_effect=mocks.PartialFailure(
-                              self.instance.FAILURE_LIMIT, mock_profile)) \
-                                      as mock_exception:
+                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                                                     mock_profile)) as mock_exception:
             profile = self.instance.get_profile('anyhandle')
             assert profile.did == mock_profile.did
             assert mock_exception.call_count == self.instance.FAILURE_LIMIT

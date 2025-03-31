@@ -2,10 +2,10 @@
 
 from unittest.mock import patch, MagicMock
 
-import mocks
+from base_test import BaseTest
 
 
-class TestGetReposters(mocks.BaseTest):
+class TestGetReposters(BaseTest):
     '''Test BlueSky get_reposters() method'''
     def test_get_reposters(self):
         '''Test the get_reposters() method.'''

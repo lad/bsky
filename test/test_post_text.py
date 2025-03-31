@@ -4,11 +4,11 @@ from unittest.mock import patch, MagicMock
 
 import atproto_core
 import pytest
+from base_test import BaseTest
+from partial_failure import PartialFailure
 
-import mocks
 
-
-class TestPostText(mocks.BaseTest):
+class TestPostText(BaseTest):
     '''Test BlueSky post_text() method'''
     def test_post_text(self):
         '''Test the post_text() method.'''
@@ -35,9 +35,8 @@ class TestPostText(mocks.BaseTest):
         mock_post.uri = 'at://example/post/1'
 
         with patch.object(self.instance.client, 'send_post',
-                          side_effect=mocks.PartialFailure(
-                              self.instance.FAILURE_LIMIT, mock_post)) \
-                                      as mock_exception:
+                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                                                     mock_post)) as mock_exception:
             uri = self.instance.post_text('Hello')
             assert uri == mock_post.uri
             assert mock_exception.call_count == self.instance.FAILURE_LIMIT

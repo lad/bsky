@@ -6,10 +6,9 @@ import datetime
 
 import atproto_core
 import atproto_core.exceptions
-
 import pytest
-
-import mocks
+from base_test import BaseTest
+from partial_failure import PartialFailure
 
 
 # pylint: disable=W0613 (unused-argument)
@@ -49,7 +48,7 @@ class MockHelpers:
         return gal_mock
 
 
-class TestGetLikes(mocks.BaseTest):
+class TestGetLikes(BaseTest):
     '''Test BlueSky get_likes() method'''
     @pytest.fixture
     def setup_like_mock(self):
@@ -179,9 +178,8 @@ class TestGetLikes(mocks.BaseTest):
 
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes',
-                          side_effect=mocks.PartialFailure(
-                              self.instance.FAILURE_LIMIT, gal_mock)) \
-                                      as mock_exception, \
+                          side_effect=PartialFailure(self.instance.FAILURE_LIMIT,
+                                                     gal_mock)) as mock_exception, \
             patch.object(self.instance.client.app.bsky.feed.like,
                          'get', return_value=setup_like_get_mock):
 
@@ -202,7 +200,7 @@ class TestGetLikes(mocks.BaseTest):
                 assert like.created_at is not None
                 assert like.created_at == mock_feed.created_at
 
-    def side_effect_feed_like_get(self, did, rkey):
+    def side_effect_feed_like_get(self, _did, rkey):
         '''Create a mock response for bsky.app.feed.like.get()'''
         like_get_mock = MagicMock()
         like_get_mock.value = MagicMock()

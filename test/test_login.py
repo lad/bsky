@@ -2,15 +2,11 @@
 from unittest.mock import patch
 
 import atproto_core
-
 import pytest
-
 from bluesky import BlueSky
-from mocks import PartialFailure
-
+from partial_failure import PartialFailure
 
 # pylint: disable=W0201 (attribute-defined-outside-init)
-# pylint: disable=R0903 (too-few-public-methods)
 
 
 class TestBlueSkyLogin:

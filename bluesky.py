@@ -105,6 +105,7 @@ class BlueSky:
 
         return []
 
+    # TODO: Finish test_get_mutuals()
     @normalize_handle
     def get_mutuals(self, handle, flag):
         '''A generator to yield entries for users that the given user follows
@@ -134,6 +135,7 @@ class BlueSky:
             raise ValueError(f"Invalid flag: '{flag}'. Expected 'both', "
                              f"'follows-not-followers', or 'followers-not-follows'.")
 
+    # TODO: Finish test_get_reposters()
     @normalize_handle
     def get_reposters(self, handle, date_limit_str=None):
         '''A generator to yield people that have reposts posts for the given user
