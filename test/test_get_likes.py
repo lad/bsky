@@ -14,6 +14,20 @@ from partial_failure import PartialFailure
 # pylint: disable=W0613 (unused-argument)
 # pylint: disable=W0201 (attribute-defined-outside-init)
 
+test_dates = [
+    "2023-01-01",               # Basic date
+    "2023-12-31",               # Basic date
+    "2020-02-29",               # Leap year date
+    "2023-01-01T12:00:00",      # Date with time
+    "2023-12-31T23:59:59",      # Date with time
+    "2023-01-01T12:00:00+00:00",# Date with timezone
+    "2023-01-01T12:00:00-05:00",# Date with timezone
+    "2023-01-01T12:00:00Z",     # Date with UTC
+    "2023-01-01T12:00:00.123456",# Date with fractional seconds
+    "2023-01-01T12:00:00+02:00",# Date with timezone in hours and minutes
+]
+
+
 
 class MockHelpers:
     '''Helper functions for pytest mocks and fixtures'''
@@ -125,6 +139,29 @@ class TestGetLikes(BaseTest):
         '''Test when an invalid date is provided'''
         with pytest.raises(ValueError):
             list(self.instance.get_likes("invalid-date"))
+
+    @pytest.mark.parametrize('testdate', test_dates)
+    def test_get_likes_iso_dates(self, setup_gal_mock, setup_like_get_mock, testdate):
+        '''Test the get_likes method with various ISO formatted dates'''
+        gal_mock, param = setup_gal_mock
+        with patch.object(self.instance.client.app.bsky.feed,
+                          'get_actor_likes', return_value=gal_mock), \
+            patch.object(self.instance.client.app.bsky.feed.like,
+                         'get', return_value=setup_like_get_mock):
+
+            # Call function under test: get_likes() with given testdate
+            likes = list(self.instance.get_likes(testdate, get_date=True))
+
+            # assert the number of likes returned
+            assert len(likes) == param
+
+            # assert the contents of the returned likes
+            for like, mock_feed in zip(likes, gal_mock.feed):
+                assert like.post.viewer.like == mock_feed.post.viewer.like
+                assert like.post.uri == mock_feed.post.uri
+                # get_date was True so we should get back a valid date
+                assert like.created_at is not None
+                assert like.created_at == mock_feed.created_at
 
     def test_get_likes_no_date_no_count_no_get_date(self, setup_gal_mock):
         '''Test the get_likes method, no date, no count, get_date default (false)'''
