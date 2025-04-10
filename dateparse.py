@@ -133,7 +133,7 @@ def _parse_hours(today, date_str):
     if not match:
         match = re.match(r'(last\s+)?(\w+)\s+hours?(\s+ago)?', date_str)
 
-    # As above but with two words for hours like "fourty one hours ago"
+    # As above but with two words for hours like "forty one hours ago"
     if not match:
         match = re.match(r'(last\s+)?(\w+\s+\w+)\s+hours?(\s+ago)?', date_str)
 
