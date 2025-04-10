@@ -144,7 +144,7 @@ words_numbers = [('one day', '1 day'),
                  ('sixty three days', '63 days'),
                  ('seventy seven days', '77 days'),
                  ('eighty nine days', '89 days'),
-                 ('ninty five days', '95 days')]
+                 ('ninety five days', '95 days')]
 
 
 class TestDateParse:
