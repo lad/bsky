@@ -2,7 +2,6 @@
 
 
 import datetime
-from unittest.mock import patch
 import pytest
 
 import dateparse
@@ -161,6 +160,7 @@ class TestDateParse:
         assert dateparse.parse(testdate)
 
     def test_today_yesterday_comparisons(self):
+        '''Test parse() method for today & yesterday comparisons'''
         date_today = dateparse.parse("today")
         date_yesterday = dateparse.parse("yesterday")
 
@@ -168,6 +168,7 @@ class TestDateParse:
         assert date_yesterday < date_today
 
     def test_today_tomorrow_comparisons(self):
+        '''Test parse() method for today & tomorrow comparisons'''
         date_today = dateparse.parse("today")
         date_tomorrow = dateparse.parse("tomorrow")
 
@@ -175,6 +176,7 @@ class TestDateParse:
         assert date_tomorrow > date_today
 
     def test_yesterday_tomorrow_comparisons(self):
+        '''Test parse() method for yesterday & tomorrow comparisons'''
         date_yesterday = dateparse.parse("yesterday")
         date_tomorrow = dateparse.parse("tomorrow")
 
@@ -183,12 +185,14 @@ class TestDateParse:
 
     @pytest.mark.parametrize('word_number', words_numbers)
     def test_word_number_parsing(self, word_number):
+        '''Test parse() method for word and number parsing equivalence'''
         word, number = word_number
         date_word = dateparse.parse(word)
         date_number = dateparse.parse(number)
         assert date_word == date_number
 
     def test_minutes_comparisons(self):
+        '''Test parse() method for minute comparisons'''
         one_minute = dateparse.parse("one minute ago")
         five_minutes = dateparse.parse("five minute ago")
         thirty_minutes = dateparse.parse("30 mins ago")
@@ -197,6 +201,7 @@ class TestDateParse:
         assert five_minutes > thirty_minutes
 
     def test_minute_now_comparisons(self):
+        '''Test parse() method for minute to now comparisons'''
         one_minute = dateparse.parse("one minute ago")
         five_minutes = dateparse.parse("five minute ago")
         thirty_minutes = dateparse.parse("30 mins ago")
@@ -207,11 +212,11 @@ class TestDateParse:
         assert thirty_minutes < now
 
     def test_hour_comparisons(self):
+        '''Test parse() method for hour comparisons'''
         one_hour = dateparse.parse("one hour ago")
         eight_hours = dateparse.parse("eight hours ago")
         thirty_six_hours = dateparse.parse("thirty six hours ago")
         one_hundred_and_twenty_hours = dateparse.parse("120 hours ago")
-        now = datetime.datetime.now(datetime.timezone.utc)
 
         assert one_hour > eight_hours
         assert one_hour > thirty_six_hours
@@ -225,6 +230,7 @@ class TestDateParse:
         assert one_hundred_and_twenty_hours < one_hour
 
     def test_day_comparisons(self):
+        '''Test parse() method for day comparisons'''
         one_day = dateparse.parse("1 day")
         two_days = dateparse.parse("two days")
         five_days = dateparse.parse("5 days")
@@ -257,6 +263,7 @@ class TestDateParse:
         assert forty_five_days < seven_days
 
     def test_week_comparisons(self):
+        '''Test parse() method for week comparisons'''
         one_week = dateparse.parse("1 week")
         two_weeks = dateparse.parse("two weeks")
         ten_weeks = dateparse.parse("10 weeks")
