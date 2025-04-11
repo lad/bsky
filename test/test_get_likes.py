@@ -15,18 +15,17 @@ from partial_failure import PartialFailure
 # pylint: disable=W0201 (attribute-defined-outside-init)
 
 test_dates = [
-    "2023-01-01",               # Basic date
-    "2023-12-31",               # Basic date
-    "2020-02-29",               # Leap year date
-    "2023-01-01T12:00:00",      # Date with time
-    "2023-12-31T23:59:59",      # Date with time
-    "2023-01-01T12:00:00+00:00",# Date with timezone
-    "2023-01-01T12:00:00-05:00",# Date with timezone
-    "2023-01-01T12:00:00Z",     # Date with UTC
-    "2023-01-01T12:00:00.123456",# Date with fractional seconds
-    "2023-01-01T12:00:00+02:00",# Date with timezone in hours and minutes
+    "2023-01-01",                   # Basic date
+    "2023-12-31",                   # Basic date
+    "2020-02-29",                   # Leap year date
+    "2023-01-01T12:00:00",          # Date with time
+    "2023-12-31T23:59:59",          # Date with time
+    "2023-01-01T12:00:00+00:00",    # Date with timezone
+    "2023-01-01T12:00:00-05:00",    # Date with timezone
+    "2023-01-01T12:00:00Z",         # Date with UTC
+    "2023-01-01T12:00:00.123456",   # Date with fractional seconds
+    "2023-01-01T12:00:00+02:00",    # Date with timezone in hours and minutes
 ]
-
 
 
 class MockHelpers:
