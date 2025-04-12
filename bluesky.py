@@ -38,6 +38,32 @@ def normalize_handle(func):
     return wrapper
 
 
+class PostTypeMask:
+    '''An sort of enum class to describe types of posts. Uses int masks which
+       enums don't support'''
+    ORIGINAL = 1
+    REPOST = 2
+    REPLY = 4
+    ALL = 7
+
+    def __init__(self, value):
+        if value < self.ORIGINAL or value > self.ALL:
+            raise ValueError(f"Invalid PostTypeMask value {value}")
+        self.value = value
+
+    def original(self):
+        '''Indicates whether the requested types of posts include original posts'''
+        return self.value & self.ORIGINAL
+
+    def repost(self):
+        '''Indicates whether the requested types of posts include reposts'''
+        return self.value & self.REPOST
+
+    def reply(self):
+        '''Indicates whether the requested types of posts include replies'''
+        return self.value & self.REPLY
+
+
 class BlueSky:
     '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
@@ -140,7 +166,8 @@ class BlueSky:
            handle'''
         repost_info = {}
 
-        for post in self.get_posts(handle, date_limit_str=date_limit_str):
+        for post in self.get_posts(handle, date_limit_str=date_limit_str,
+                                   post_type_filter=PostTypeMask.ORIGINAL):
             if post.repost_count:
                 reposters = self.client.get_reposted_by(post.uri)
                 for profile in reposters.reposted_by:
@@ -270,9 +297,45 @@ class BlueSky:
 
         return rsp
 
+    @staticmethod
+    def _is_original_post(view, handle):
+        return view.post.author.handle == handle and not view.reply
+
+    @staticmethod
+    def _is_reply_post(view, handle):
+        return view.post.author.handle == handle and view.reply
+
+    @staticmethod
+    def _is_repost_post(view, handle):
+        return view.post.author.handle != handle
+
+    @staticmethod
+    def _filter_post(filter_post_type, view, handle):
+        '''Ignore this post if it's not one of the following:
+            - requested type is repost and the author handle is not ours
+            - requested type is reply and there is a reply structure and the
+                author's handle is our own
+            - requested type is original and there is no reply structure and
+                the author's handle is our own'''
+        return not ((filter_post_type.repost() and
+                     view.post.author.handle != handle) or
+                    (filter_post_type.reply() and
+                     view.reply and view.post.author.handle == handle) or
+                    (filter_post_type.original() and not view.reply and
+                     view.post.author.handle == handle))
+
+    @staticmethod
+    def _date_limit_reached(view, handle, date_limit):
+        if BlueSky._is_repost_post(view, handle):
+            date_at = view.reason.indexed_at
+        else:
+            date_at = view.post.record.created_at
+
+        return dateutil.parser.isoparse(date_at) < date_limit
+
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
-                  reply=False, original=False):
+                  post_type_filter=PostTypeMask.ORIGINAL):
         '''A generator to return an entry for posts for the given user handle'''
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         cursor = None
@@ -283,15 +346,12 @@ class BlueSky:
             try:
                 feed = self.client.get_author_feed(actor=handle, cursor=cursor)
                 for view in feed.feed:
-                    if date_limit:
-                        dt = datetime.strptime(view.post.record.created_at,
-                                               dateparse.BLUESKY_DATE_FORMAT)
-                        if dt < date_limit:
-                            self.logger.info('Date limit reached')
-                            return None
-                    if reply and not view.reply:
-                        continue
-                    if original and view.reply:
+                    if date_limit and self._date_limit_reached(view, handle,
+                                                               date_limit):
+                        self.logger.info('Date limit reached')
+                        return None
+
+                    if self._filter_post(post_type_filter, view, handle):
                         continue
 
                     # Apply count check after filter checks above.
@@ -302,6 +362,8 @@ class BlueSky:
                             return None
 
                     view.post.reply = view.reply
+                    if self._is_repost_post(view, handle):
+                        view.post.repost_date = view.reason.indexed_at
                     yield view.post
 
                 if feed.cursor:
@@ -351,7 +413,7 @@ class BlueSky:
 
     # TODO: Finish get_notifications tests
     def get_notifications(self, date_limit_str=None, count_limit=None,
-                          mark_read=False):
+                          mark_read=False, get_all=False):
         '''A generator to yield notifications for the authenticated handle'''
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         count = 0
@@ -378,6 +440,11 @@ class BlueSky:
                             self.logger.info('Count limit reached')
                             return None
 
+                    # If we're not returning all (already read) notificiations then
+                    # we're done when we hit the first already read notification.
+                    if not get_all and notif.is_read:
+                        return None
+
                     if notif.reason == 'reply':
                         post = self.get_post(notif.record.reply.parent.uri)
                     elif notif.reason in ['like', 'repost']:
@@ -391,7 +458,8 @@ class BlueSky:
                     self.logger.info('Cursor found, retrieving next page...')
                     cursor = rsp.cursor
                     continue
-                elif mark_read:
+
+                if mark_read:
                     # TODO should we consider implementing mark_read when date or
                     # count limit is reached above?
                     seen_at = self.client.get_current_time_iso()

@@ -13,6 +13,7 @@ from partial_failure import PartialFailure
 
 # pylint: disable=W0613 (unused-argument)
 # pylint: disable=W0201 (attribute-defined-outside-init)
+# pylint: disable=R0903 (too-few-public-methods)
 
 
 class MockHelpers:
@@ -28,48 +29,55 @@ class MockHelpers:
         return now.isoformat(timespec='milliseconds')
 
 # rsp = self.client.app.bsky.notification.list_notifications(
-# for notif in rsp.notifications:
-# if date_limit:
+# for notif in rsp.notifications:
+# if date_limit:
 #   dt = datetime.strptime(notif.record.created_at,
-# if count_limit:
+# if count_limit:
 # if notif.reason == 'reply':
 #     post = self.get_post(notif.record.reply.parent.uri)
 # elif notif.reason in ['like', 'repost']:
 #     post = self.get_post(notif.reason_subject)
 # else:
 #     post = None
-# cursor = rsp.cursor
-# elif mark_read:
-#     seen_at = self.client.get_current_time_iso()
-#     self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
-# except atproto_core.exceptions.AtProtocolError as ex:
+# cursor = rsp.cursor
+# elif mark_read:
+#     seen_at = self.client.get_current_time_iso()
+#     self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
+# except atproto_core.exceptions.AtProtocolError as ex:
+
 
 class TestGetNotifications(BaseTest):
     '''Test BlueSky get_notifications() method'''
     @staticmethod
     def mock_post_uri(num):
+        '''Create a mock URI for post resources'''
         return f"at://example/post/{num}"
 
     @staticmethod
     def mock_notification_reply(num):
+        '''Create a mock notification structure for replies'''
         notif = MagicMock()
         notif.record.created_at = MockHelpers.make_created_at()
         notif.reason = 'reply'
         notif.record.reply.parent.uri = TestGetNotifications.mock_post_uri(num)
+        notif.is_read = False
         notif.cursor = None
         return notif
 
     @staticmethod
     def mock_notification_like(num):
+        '''Create a mock notification structure for likes'''
         notif = MagicMock()
         notif.record.created_at = MockHelpers.make_created_at()
         notif.reason = 'like'
         notif.reason_subject = TestGetNotifications.mock_post_uri(num)
+        notif.is_read = False
         notif.cursor = None
         return notif
 
     @pytest.fixture
-    def mock_40_notifications(self):
+    def mock_40_not_read_notifications(self):
+        '''Create 40 mock notification structures of various types'''
         rsp = MagicMock()
 
         # Build a list and intersperse the reply and like notifications
@@ -84,17 +92,20 @@ class TestGetNotifications(BaseTest):
 
     @staticmethod
     def side_effect_post(uri):
+        '''Create a mock post structure with the given URI'''
         post = MagicMock()
         post.uri = uri
         return post
 
     def test_get_notifications_no_date_no_count_no_mark_read(
-            self, mock_40_notifications):
+            self, mock_40_not_read_notifications):
+        '''Test notifications with no date limit, no count limit and not marking
+           any as read'''
         with patch.object(self.instance, 'get_post',
                           side_effect=TestGetNotifications.side_effect_post), \
              patch.object(self.instance.client.app.bsky.notification,
                           'list_notifications',
-                          return_value=mock_40_notifications):
+                          return_value=mock_40_not_read_notifications):
             responses = list(self.instance.get_notifications())
 
             assert len(responses) == 40
@@ -102,27 +113,30 @@ class TestGetNotifications(BaseTest):
                 assert notification.created_at is not None
                 assert post.uri == TestGetNotifications.mock_post_uri(i + 1)
 
+    # TODO: need tests for notifications with mark_read = True
 
     def test_get_notifications_no_date_no_count_no_mark_read_with_cursor(
-            self, mock_40_notifications):
+            self, mock_40_not_read_notifications):
+        '''Test notifications with no date limit, no count limit and not marking
+           any as read but returning in several "pages" with a cursor'''
 
         def side_effect_list_notifications_cursor(params=None):
             cursor = params['cursor']
             rsp = MagicMock()
             if cursor is None:
-                rsp.notifications = mock_40_notifications.notifications[0:10]
+                rsp.notifications = mock_40_not_read_notifications.notifications[0:10]
                 rsp.cursor = 10
             elif cursor == 10:
-                rsp.notifications = mock_40_notifications.notifications[10:19]
+                rsp.notifications = mock_40_not_read_notifications.notifications[10:19]
                 rsp.cursor = 20
             elif cursor == 20:
-                rsp.notifications = mock_40_notifications.notifications[19:29]
+                rsp.notifications = mock_40_not_read_notifications.notifications[19:29]
                 rsp.cursor = 30
             elif cursor == 30:
-                rsp.notifications = mock_40_notifications.notifications[29:37]
+                rsp.notifications = mock_40_not_read_notifications.notifications[29:37]
                 rsp.cursor = 38
             elif cursor == 38:
-                rsp.notifications = mock_40_notifications.notifications[37:40]
+                rsp.notifications = mock_40_not_read_notifications.notifications[37:40]
                 rsp.cursor = None
             return rsp
 
@@ -173,14 +187,14 @@ class TestGetNotifications(BaseTest):
         # Use the rkey part of the URI as the number of minutes old that the
         # like was created at. We setup these rkey/URI values as an increasing
         # integer from 1 in setup_10_gal_mock()
-        like_get_mock.value.created_at = MockHelpers.like_created_at(minutes=int(rkey))
+        like_get_mock.value.created_at = MockHelpers.make_created_at(minutes=int(rkey))
         self.like_get_mock_feed_created_at.append(like_get_mock.value.created_at)
         return like_get_mock
 
     @pytest.mark.parametrize("minutes_ago", range(11))
     @pytest.mark.skip
     def test_get_notifications_date_limit_reached_no_count(self, setup_10_gal_mock,
-                                                   minutes_ago):
+                                                           minutes_ago):
         '''Test when the date limit is reached'''
         with patch.object(self.instance.client.app.bsky.feed,
                           'get_actor_likes', return_value=setup_10_gal_mock), \
@@ -215,13 +229,13 @@ class TestGetNotifications(BaseTest):
 
     @pytest.mark.parametrize("count_limit", range(1, 11))
     def test_get_notifications_no_date_count_limit_reached(
-            self, mock_40_notifications, count_limit):
+            self, mock_40_not_read_notifications, count_limit):
         '''Test when the date limit is reached'''
         with patch.object(self.instance, 'get_post',
                           side_effect=TestGetNotifications.side_effect_post), \
              patch.object(self.instance.client.app.bsky.notification,
                           'list_notifications',
-                          return_value=mock_40_notifications):
+                          return_value=mock_40_not_read_notifications):
 
             # Call function under test: get_notifications() with a date limit
             # but no count and get_date=False.

@@ -22,8 +22,7 @@ class PostsCommandRequest:
     handle: str
     date_limit: str
     count_limit: int
-    reply: bool
-    original: bool
+    post_type_filter: bluesky.PostTypeMask
     full: bool = False
 
 
@@ -172,17 +171,20 @@ class CommandLineParser:
                             help='Count of posts to display')
         parser.add_argument('handle', nargs='?', help="user's handle")
 
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='posts_cmd',
-                            func_args=lambda ns: [PostsCommandRequest(ns.handle,
-                                                                      ns.since,
-                                                                      ns.count,
-                                                                      ns.reply,
-                                                                      ns.original)])
+        parser.add_argument('--original', '-o', action='store_true',
+                            help='Show original posts only')
+        parser.add_argument('--repost', action='store_true',
+                            help='Show reposts only')
+        parser.add_argument('--reply', action='store_true',
+                            help='Show replies only')
+        parser.add_argument('--all', '-a', action='store_true',
+                            help='Show all posts types')
+
+        parser.set_defaults(func='posts_cmd', func_args=lambda ns:
+                            [PostsCommandRequest(
+                                ns.handle, ns.since, ns.count,
+                                CommandLineParser._options_to_post_types(
+                                    ns.original, ns.repost, ns.reply, ns.all))])
 
     @staticmethod
     def _add_parser_post_image(parent):
@@ -222,18 +224,21 @@ class CommandLineParser:
         parser.add_argument('--full', '-f', action='store_true',
                             help='Show full details of each user who likes the post')
 
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='posts_likes_cmd',
-                            func_args=lambda ns: [PostsCommandRequest(ns.handle,
-                                                                      ns.since,
-                                                                      ns.count,
-                                                                      ns.reply,
-                                                                      ns.original,
-                                                                      ns.full)])
+        parser.add_argument('--original', '-o', action='store_true',
+                            help='Show original posts only')
+        parser.add_argument('--repost', action='store_true',
+                            help='Show reposts only')
+        parser.add_argument('--reply', action='store_true',
+                            help='Show replies only')
+        parser.add_argument('--all', '-a', action='store_true',
+                            help='Show all posts types')
+
+        parser.set_defaults(func='posts_likes_cmd', func_args=lambda ns: [
+                            PostsCommandRequest(
+                                ns.handle, ns.since, ns.count,
+                                CommandLineParser._options_to_post_types(
+                                    ns.original, ns.repost, ns.reply, ns.all),
+                                ns.full)])
 
     @staticmethod
     def _add_parser_most_likes(parent):
@@ -249,19 +254,20 @@ class CommandLineParser:
         parser.add_argument('--full', '-f', action='store_true',
                             help='Show full details of each user who likes the post')
 
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reply', '-r', action='store_true',
-                           help='Show replies only')
-        group.add_argument('--original', '-o', action='store_true',
-                           help='Show original posts only')
-        parser.set_defaults(func='most_likes_cmd',
-                            func_args=lambda ns: [PostsCommandRequest(
-                                                    ns.handle,
-                                                    ns.since,
-                                                    ns.count,
-                                                    ns.reply,
-                                                    ns.original,
-                                                    ns.full)])
+        parser.add_argument('--original', '-o', action='store_true',
+                            help='Show original posts only')
+        parser.add_argument('--repost', action='store_true',
+                            help='Show reposts only')
+        parser.add_argument('--reply', action='store_true',
+                            help='Show replies only')
+        parser.add_argument('--all', '-a', action='store_true',
+                            help='Show all posts types')
+        parser.set_defaults(func='most_likes_cmd', func_args=lambda ns: [
+                            PostsCommandRequest(
+                                ns.handle, ns.since, ns.count,
+                                CommandLineParser._options_to_post_types(
+                                    ns.original, ns.repost, ns.reply, ns.all),
+                                ns.full)])
 
     @staticmethod
     def _add_parser_delete(parent):
@@ -368,6 +374,22 @@ class CommandLineParser:
             return False
         return None
 
+    @staticmethod
+    def _options_to_post_types(original, repost, reply, allposts):
+        typ = 0
+        if original:
+            typ |= bluesky.PostTypeMask.ORIGINAL
+        if repost:
+            typ |= bluesky.PostTypeMask.REPOST
+        if reply:
+            typ |= bluesky.PostTypeMask.REPLY
+        if allposts:
+            typ |= bluesky.PostTypeMask.ALL
+        if typ == 0:
+            # Default if no post type options are given
+            typ = bluesky.PostTypeMask.ORIGINAL
+        return bluesky.PostTypeMask(typ)
+
 
 class BlueSkyCommandLine:
     '''A command line client for the BlueSky API'''
@@ -446,8 +468,9 @@ class BlueSkyCommandLine:
     def posts_cmd(self, req):
         '''Print the posts by the given user handle limited by the request details
            like: date_limit, count, reply vs. original post'''
-        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
-                                      req.reply, req.original):
+        for post in self.bs.get_posts(req.handle, req.date_limit,
+                                      count_limit=req.count_limit,
+                                      post_type_filter=req.post_type_filter):
             self._print_post_entry(post)
 
     def post_likes_cmd(self, uri, full):
@@ -465,8 +488,7 @@ class BlueSkyCommandLine:
         for post in self.bs.get_posts(req.handle,
                                       date_limit_str=req.date_limit,
                                       count_limit=None,
-                                      reply=req.reply,
-                                      original=req.original):
+                                      post_type_filter=req.post_type_filter):
             if post.like_count:
                 count += 1
                 for like in self.bs.get_post_likes(post.uri):
@@ -480,8 +502,9 @@ class BlueSkyCommandLine:
     def most_likes_cmd(self, req):
         '''Print details of who most likes the posts found by the given parameters'''
         likes = {}
-        for post in self.bs.get_posts(req.handle, req.date_limit, req.count_limit,
-                                      req.reply, req.original):
+        for post in self.bs.get_posts(req.handle, req.date_limit,
+                                      count_limit=req.count_limit,
+                                      post_type_filter=req.post_type_filter):
             for like in self.bs.get_post_likes(post.uri):
                 if like.actor.did in likes:
                     count, profile = likes[like.actor.did]
@@ -518,7 +541,7 @@ class BlueSkyCommandLine:
         notification_count, unread_count = 0, 0
         for notif, post in self.bs.get_notifications(date_limit_str=date_limit,
                                                      count_limit=count_limit,
-                                                     mark_read=mark):
+                                                     mark_read=mark, get_all=show_all):
             if show_all or not notif.is_read:
                 self._print_notification_entry(notif, post)
 
@@ -637,6 +660,9 @@ class BlueSkyCommandLine:
             is_follower = post.author.handle in followers
             print(f"Follower: {is_follower}")
         print(f"Date: {dateparse.humanise_date_string(post.record.created_at)}")
+        if hasattr(post, 'repost_date'):
+            print(f"Repost Date: "
+                  f"{dateparse.humanise_date_string(post.repost_date)}")
         print(f"Post URI: {post.uri}")
         print(f"Post Link: {self.bs.at_uri_to_http_url(post.uri)}")
         if hasattr(post, 'reply') and post.reply:
