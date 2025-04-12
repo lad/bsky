@@ -2,7 +2,6 @@
 
 # pylint: disable=W0511
 
-from datetime import datetime
 import functools
 import inspect
 import logging
@@ -11,6 +10,7 @@ import atproto
 import atproto_core
 import atproto_client
 from wand.image import Image
+import dateutil
 
 import dateparse
 
@@ -78,8 +78,7 @@ class BlueSky:
                         like.created_at = None
 
                     if date_limit:
-                        dt = datetime.strptime(like.created_at,
-                                               dateparse.BLUESKY_DATE_FORMAT)
+                        dt = dateutil.parser.isoparse(like.created_at)
                         if dt < date_limit:
                             self.logger.info('Date limit reached')
                             return []
@@ -365,8 +364,7 @@ class BlueSky:
                         params={'cursor': cursor})
                 for notif in rsp.notifications:
                     if date_limit:
-                        dt = datetime.strptime(notif.record.created_at,
-                                               dateparse.BLUESKY_DATE_FORMAT)
+                        dt = dateutil.parser.isoparse(notif.record.created_at)
                         if dt < date_limit:
                             # Once we get to notifications older than the date
                             # limit, we assume the rest of the notifications are
