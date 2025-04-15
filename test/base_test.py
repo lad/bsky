@@ -1,6 +1,6 @@
 '''Common base class for BlueSky test classes'''
 
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 import pytest
 from bluesky import BlueSky
 
@@ -15,6 +15,10 @@ class BaseTest:
         '''Create an instance of the BlueSky class mocking out the login method'''
         with patch('atproto.Client') as mock_client:
             mock_client_instance = mock_client.return_value
-            mock_client_instance.login.return_value = None  # Mock the login method
+            # Mock the login method
+            mock_client_instance.login.return_value = None
             self.instance = BlueSky(handle='@testuser.bsky.social',
                                     password='testpassword')
+
+            # Mock its atproto client
+            self.instance._client = mock_client

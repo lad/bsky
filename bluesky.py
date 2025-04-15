@@ -74,8 +74,14 @@ class BlueSky:
         self.handle = handle
         self._password = password
         self.logger = logging.getLogger(__name__)
-        self.client = atproto.Client()
-        self._login()
+        self._client = None
+
+    @property
+    def client(self):
+        if not self._client:
+            self._client = atproto.Client()
+            self._login()
+        return self._client
 
     def get_likes(self, date_limit_str, count_limit=None, get_date=False):
         '''A generator to yield posts that the given user handle has liked'''
