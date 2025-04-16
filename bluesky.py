@@ -530,7 +530,11 @@ class BlueSky:
     @normalize_handle
     def profile_did(self, handle):
         '''Return the DID for a given user handle'''
-        return self.get_profile(handle).did
+        profile = self.get_profile(handle)
+        if profile:
+            return profile.did
+        else:
+            return None
 
     @staticmethod
     def at_uri_to_http_url(at_uri):

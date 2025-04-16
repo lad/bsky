@@ -21,6 +21,15 @@ class TestGetProfile(BaseTest):
             profile = self.instance.get_profile('@testuser.bsky.social')
             assert profile.did == mock_profile.did
 
+    def test_get_profile_not_found(self):
+        '''Test the get_profile() method when the profile is not found.'''
+        mock_profile = MagicMock()
+        mock_profile.did = 'did:example:123'
+
+        with patch.object(self.instance.client,
+                          'get_profile', return_value=None):
+            assert not self.instance.get_profile('@axslaskx.lasdl.iasdo')
+
     def test_get_profile_exception_limit(self):
         '''Test the get_profile() method with exceptions failure'''
         with patch.object(self.instance.client,
