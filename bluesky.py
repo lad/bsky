@@ -78,6 +78,8 @@ class BlueSky:
 
     @property
     def client(self):
+        """Dynamic client attribute. Used to defer logging into BlueSky until
+           the client is actually needed."""
         if not self._client:
             self._client = atproto.Client()
             self._login()
@@ -533,8 +535,7 @@ class BlueSky:
         profile = self.get_profile(handle)
         if profile:
             return profile.did
-        else:
-            return None
+        return None
 
     @staticmethod
     def at_uri_to_http_url(at_uri):
