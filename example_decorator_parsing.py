@@ -6,43 +6,51 @@ import os
 import sys
 import configparser
 import logging
-from dataclasses import dataclass
 
-import wcwidth
-
-from commandlineparser import command, argument, global_argument, CommandLineParser
+from commandlineparser import Command, Argument, CommandLineParser
 import bluesky
 import shared
 
 
-@global_argument("--critical", action="store_const",
-                 dest="log_level", const=logging.CRITICAL,
-                 help='Set log level to CRITICAL')
-@global_argument('--error', '-e', action='store_const', dest="log_level",
-                 const=logging.ERROR, help='Set log level to ERROR')
-@global_argument('--warning', '-w', action='store_const',
-                 dest="log_level", const=logging.WARNING,
-                 default=logging.WARNING,
-                 help='Set log level to WARNING [default]')
-@global_argument('--info', '-i', action='store_const',
-                 dest="log_level", const=logging.INFO,
-                 help='Set log level to INFO')
-@global_argument('--debug', '-d', action='store_const',
-                 dest="log_level", const=logging.DEBUG,
-                 help='Set log level to DEBUG')
-@global_argument('--verbose', '-v', action='store_const',
-                 dest="log_level", const=logging.DEBUG,
-                 help='Synonym for --debug')
-@global_argument('--config', '-c', dest='config', action='store',
-                 help='config file or $BSCONFIG or $PWD/.config')
 class BlueSkyCommandLine:
     """A command line client for the BlueSky API"""
     CONFIG_PATH_DEFAULT = os.path.join(os.getcwd(), '.config')
+    GLOBAL_ARGUMENTS = [Argument("--critical", action="store_const",
+                                 dest="log_level", const=logging.CRITICAL,
+                                 help='Set log level to CRITICAL'),
+                        Argument('--error', '-e', action='store_const',
+                                 dest="log_level", const=logging.ERROR,
+                                 help='Set log level to ERROR'),
+                        Argument('--warning', '-w', action='store_const',
+                                 dest="log_level", const=logging.WARNING,
+                                 default=logging.WARNING,
+                                 help='Set log level to WARNING [default]'),
+                        Argument('--info', '-i', action='store_const',
+                                 dest="log_level", const=logging.INFO,
+                                 help='Set log level to INFO'),
+                        Argument('--debug', '-d', action='store_const',
+                                 dest="log_level", const=logging.DEBUG,
+                                 help='Set log level to DEBUG'),
+                        Argument('--verbose', '-v', action='store_const',
+                                 dest="log_level", const=logging.DEBUG,
+                                 help='Synonym for --debug'),
+                        Argument('--config', '-c', dest='config', action='store',
+                                 help='config file or $BSCONFIG or $PWD/.config')]
+    COMMANDS = [Command('did',
+                        [Argument('handle', nargs='?', help="user's handle")],
+                        help="show a user's did"),
+                Command('profile',
+                        [Argument('handle', nargs='?',
+                                  help="user's handle"),
+                         Argument('--full', '-f', action='store_true',
+                                  help="show user's profile")],
+                        help='Show more details of each user')]
 
     def __init__(self, args):
         """Command Line Main Entry Point"""
         # Parse the command line
-        self.ns = CommandLineParser(args).parse_args()
+        self.ns = CommandLineParser(self.GLOBAL_ARGUMENTS,
+                                    self.COMMANDS).parse_args(args)
 
         # Setting some logging details based on the command line args
         shared.DEBUG = self.ns.log_level == logging.DEBUG
@@ -61,9 +69,10 @@ class BlueSkyCommandLine:
     def run(self):
         """Run the function for the command line given to the constructor"""
         # self.ns is populated when we call CommandLineParser.parse_args() in the
-        # constructor. self.ns contains the 'func' to run and the 'func_args'
-        # lambda that assembles the function arguments from the parsed command line.
-        self.ns.cmd['func'](self, *self.ns.func_args(self.ns))
+        # constructor. self.ns contains the name of the function to run which we can
+        # lookup on this obejct. It also contains 'func_args' lambda that
+        # assembles the function arguments from the parsed command line.
+        getattr(self, self.ns.cmd.name)(*self.ns.func_args(self.ns))
 
     @staticmethod
     def _get_config(path):
@@ -74,9 +83,7 @@ class BlueSkyCommandLine:
         cp.read(path)
         return cp.get('auth', 'user'), cp.get('auth', 'password')
 
-    @command('did', help="show a user's did")
-    @argument('did', 'handle', nargs='?', help="user's handle")
-    def did_cmd(self, handle):
+    def did(self, handle):
         """Print the DID of the given user"""
         hand = handle or self.handle
         if '.' not in hand:
@@ -87,11 +94,7 @@ class BlueSkyCommandLine:
         else:
             print(f"No DID found for {hand}")
 
-    @command('profile', help="show user's profile")
-    @argument('profile', 'handle', nargs='?', help="user's handle")
-    @argument('profile', '--full', '-f', action='store_true',
-              help='Show more details of each user')
-    def profile_cmd(self, handle, full):
+    def profile(self, handle, full):
         """Print the profile entry of the given user handle"""
         profile = self.bs.get_profile(handle)
         if profile:
