@@ -113,7 +113,23 @@ class TestGetNotifications(BaseTest):
                 assert notification.created_at is not None
                 assert post.uri == TestGetNotifications.mock_post_uri(i + 1)
 
-    # TODO: need tests for notifications with mark_read = True
+    def test_get_notifications_no_date_with_count_with_mark_read(
+            self, mock_40_not_read_notifications):
+        '''Test notifications with marking notification as read. Count needed to
+           have get_notification return early. Test ensures notifications are
+           marked as read even in that case.'''
+        with patch.object(self.instance, 'get_post',
+                          side_effect=TestGetNotifications.side_effect_post), \
+             patch.object(self.instance.client.app.bsky.notification,
+                          'list_notifications',
+                          return_value=mock_40_not_read_notifications), \
+             patch.object(self.instance.client.app.bsky.notification,
+                          'update_seen') as update_seen:
+
+            responses = list(self.instance.get_notifications(count_limit=5,
+                                                             mark_read=True))
+            assert len(responses) == 5
+            assert update_seen.call_count == 1
 
     def test_get_notifications_no_date_no_count_no_mark_read_with_cursor(
             self, mock_40_not_read_notifications):

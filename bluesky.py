@@ -467,16 +467,17 @@ class BlueSky:
                     cursor = rsp.cursor
                     continue
 
+                return None
+            except atproto_core.exceptions.AtProtocolError as ex:
+                num_failures += 1
+                self._print_at_protocol_error(ex)
+            finally:
                 if mark_read:
                     # TODO should we consider implementing mark_read when date or
                     # count limit is reached above?
                     seen_at = self.client.get_current_time_iso()
                     self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
 
-                return None
-            except atproto_core.exceptions.AtProtocolError as ex:
-                num_failures += 1
-                self._print_at_protocol_error(ex)
 
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
