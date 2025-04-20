@@ -11,6 +11,7 @@ import sys
 # regular class instantiation rather than having to wrap the args and keyword
 # arguments into an explicit list and hash
 
+
 class Argument:
     """Encapsulate the details of creating command line arguments. This class
        can be used for both global arguments that apply to the application as
@@ -22,10 +23,12 @@ class Argument:
 
 class Command:
     """Encapsulates the details of each command to be parsed from the command line."""
-    def __init__(self, name, args=None, help=None):
+    def __init__(self, name, commands=None, args=None, help=None):
         self.name = name
         self.args = args or []
+        self.commands = commands or []
         self.help = help
+        self.parent_name = None
 
 
 class CommandLineParser:
@@ -43,7 +46,7 @@ class CommandLineParser:
             main_parser.add_argument(*arg.args, **arg.kwargs)
 
         # Create a sub parser to attach the commands parsers
-        sub_cmd_parser = main_parser.add_subparsers(title='Commands')
+        main_sub_cmd_parser = main_parser.add_subparsers(title='Commands')
 
         # commands is a list of Command objects.
         # For each one:
@@ -57,16 +60,25 @@ class CommandLineParser:
         # will contain a 'cmd' entry which can be used to get the function to
         # and also has a 'func_args' with the lambda which creates the
         # arguments to the command function.
-        for cmd in commands:
+        def add_command(cmd, sub_cmd_parser, parent_name):
+            cmd.parent_name = parent_name
             parser = sub_cmd_parser.add_parser(cmd.name, help=cmd.help)
             for arg in cmd.args:
                 parser.add_argument(*arg.args, **arg.kwargs)
+
+            if cmd.commands:
+                sub_sub_cmd_parser = parser.add_subparsers(
+                        title=f"{cmd.name} commands")
+                for c in cmd.commands:
+                    add_command(c, sub_sub_cmd_parser, cmd.name)
 
             parser.set_defaults(cmd=cmd,
                                 func_args=lambda ns: [
                                     getattr(ns, self._arg_name(arg.args[0]))
                                     for arg in ns.cmd.args])
 
+        for cmd in commands:
+            add_command(cmd, main_sub_cmd_parser, 'main')
 
         # wrap ArgumentParser.parse_args() to make it act like one sub command
         # is required. No required keyword for sub-parsers until py 3.7

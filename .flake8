@@ -1,2 +1,5 @@
 [flake8]
 max-line-length = 87
+
+per-file-ignores =
+    example_decorator_parsing.py:F401

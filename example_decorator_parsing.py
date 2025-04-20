@@ -2,6 +2,10 @@
 
 '''BlueSky command line interface'''
 
+# pylint can't see that we use User and Msg classes but find them dynamically using
+# globals()
+# pylint: disable=W0611 (unused-import)
+
 import os
 import sys
 import configparser
@@ -10,6 +14,9 @@ import logging
 from commandlineparser import Command, Argument, CommandLineParser
 import bluesky
 import shared
+
+from blueskyuser import User
+from blueskymsg import Msg
 
 
 class BlueSkyCommandLine:
@@ -36,21 +43,32 @@ class BlueSkyCommandLine:
                                  help='Synonym for --debug'),
                         Argument('--config', '-c', dest='config', action='store',
                                  help='config file or $BSCONFIG or $PWD/.config')]
-    COMMANDS = [Command('did',
-                        [Argument('handle', nargs='?', help="user's handle")],
-                        help="show a user's did"),
-                Command('profile',
-                        [Argument('handle', nargs='?',
-                                  help="user's handle"),
-                         Argument('--full', '-f', action='store_true',
-                                  help="show user's profile")],
-                        help='Show more details of each user')]
+    USER_COMMANDS = [Command('did', None,
+                             [Argument('handle', nargs='?', help="user's handle")],
+                             help="show a user's did"),
+                     Command('profile', None,
+                             [Argument('handle', nargs='?', help="user's handle")],
+                             help='Show more details of each user')]
+    MSG_COMMANDS = [Command('unread', help='show number of unread messages'),
+                    Command('gets', None,
+                            [Argument('--since', '-s', action='store',
+                                      help='Date limit (e.g. today/yesterday/3 days '
+                                           'ago'),
+                             Argument('--all', '-a', action='store_true',
+                                      help='Show both read and unread notifications'),
+                             Argument('--count', '-c', action='store', type=int,
+                                      help='Max number of notifications to show'),
+                             Argument('--mark', '-m', action='store_true',
+                                      help='Mark notifications as seen')],
+                            help='Show notifications')]
+    COMMANDS = [Command('user', USER_COMMANDS),
+                Command('msg', MSG_COMMANDS)]
 
     def __init__(self, args):
         """Command Line Main Entry Point"""
         # Parse the command line
-        self.ns = CommandLineParser(self.GLOBAL_ARGUMENTS,
-                                    self.COMMANDS).parse_args(args)
+        self.main_parser = CommandLineParser(self.GLOBAL_ARGUMENTS, self.COMMANDS)
+        self.ns = self.main_parser.parse_args(args)
 
         # Setting some logging details based on the command line args
         shared.DEBUG = self.ns.log_level == logging.DEBUG
@@ -61,50 +79,37 @@ class BlueSkyCommandLine:
         config = (self.ns.config or
                   os.environ.get('DBCONFIG') or
                   BlueSkyCommandLine.CONFIG_PATH_DEFAULT)
-        self.handle, self._password = self._get_config(config)
+        self.handle, self._password = self.get_config(config)
 
         # Create the bluesky client that interacts with the BlueSky API
         self.bs = bluesky.BlueSky(self.handle, self._password)
 
     def run(self):
         """Run the function for the command line given to the constructor"""
+
         # self.ns is populated when we call CommandLineParser.parse_args() in the
-        # constructor. self.ns contains the name of the function to run which we can
-        # lookup on this obejct. It also contains 'func_args' lambda that
-        # assembles the function arguments from the parsed command line.
-        getattr(self, self.ns.cmd.name)(*self.ns.func_args(self.ns))
+        # constructor. self.ns contains the name of the parent command and the name
+        # of the command chosen. The parent command is the name of the class to
+        # instantiate and the command name is the name of the method to run on
+        # that object. It also contains 'func_args' lambda that assembles the
+        # function arguments from the parsed command line.
+
+        try:
+            cls = globals()[self.ns.cmd.parent_name.capitalize()]
+        except KeyError:
+            self.main_parser.parse_args([self.ns.cmd.name, '-h'])
+            sys.exit(1)
+
+        cls(self.bs, self.ns).run()
 
     @staticmethod
-    def _get_config(path):
+    def get_config(path):
         """Read config data and return"""
         cp = configparser.ConfigParser()
         if not os.path.exists(path):
             raise FileNotFoundError(f"Config file not found: {path}")
         cp.read(path)
         return cp.get('auth', 'user'), cp.get('auth', 'password')
-
-    def did(self, handle):
-        """Print the DID of the given user"""
-        hand = handle or self.handle
-        if '.' not in hand:
-            hand += '.bsky.social'
-        did = self.bs.profile_did(hand)
-        if did:
-            print(did)
-        else:
-            print(f"No DID found for {hand}")
-
-    def profile(self, handle, full):
-        """Print the profile entry of the given user handle"""
-        profile = self.bs.get_profile(handle)
-        if profile:
-            print(f"Profile: {profile.display_name or ''}@{profile.handle}")
-            if full:
-                print(f"Profile Link: https://bsky.app/profile/{profile.handle}")
-                print(f"DID: {profile.did}")
-                print(f"Created at: {profile.created_at}")
-        else:
-            print(f"{handle} profile not found")
 
 
 def main():

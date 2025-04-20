@@ -478,7 +478,6 @@ class BlueSky:
                     seen_at = self.client.get_current_time_iso()
                     self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
 
-
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def search(self, term, author, date_limit_str, sort_order, is_follow, is_follower):
