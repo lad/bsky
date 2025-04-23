@@ -64,6 +64,12 @@ class PostTypeMask:
         return self.value & self.REPLY
 
 
+POST_TYPE_ORIGINAL = PostTypeMask(PostTypeMask.ORIGINAL)
+POST_TYPE_REPOST = PostTypeMask(PostTypeMask.REPOST)
+POST_TYPE_REPLY = PostTypeMask(PostTypeMask.REPLY)
+POST_TYPE_ALL = PostTypeMask(PostTypeMask.ALL)
+
+
 class BlueSky:
     '''Command line client for Blue Sky'''
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
@@ -175,7 +181,7 @@ class BlueSky:
         repost_info = {}
 
         for post in self.get_posts(handle, date_limit_str=date_limit_str,
-                                   post_type_filter=PostTypeMask.ORIGINAL):
+                                   post_type_filter=POST_TYPE_ORIGINAL):
             if post.repost_count:
                 reposters = self.client.get_reposted_by(post.uri)
                 for profile in reposters.reposted_by:
@@ -282,15 +288,22 @@ class BlueSky:
 
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
-    def get_post(self, uri):
+    def get_post(self, uri=None, did=None, rkey=None, likes=False):
         '''Get details of the post at the given uri'''
-        did, rkey = self.at_uri_to_did_rkey(uri)
+        if uri:
+            did, rkey = self.at_uri_to_did_rkey(uri)
+        elif not (did and rkey):
+            raise ValueError("Must supply either 'uri' or both 'did' and 'rkey'")
+
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
             try:
                 rsp = self.client.get_post(rkey, profile_identify=did)
                 if rsp:
+                    if likes:
+                        rsp.likes = list(self.get_post_likes(rsp.uri))
+                        rsp.like_count = len(rsp.likes)
                     break
             except atproto_client.exceptions.BadRequestError as ex:
                 # Could they not just return a 404 like everyone else. FFS.
@@ -343,7 +356,7 @@ class BlueSky:
 
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
-                  post_type_filter=PostTypeMask.ORIGINAL):
+                  post_type_filter=POST_TYPE_ORIGINAL):
         '''A generator to return an entry for posts for the given user handle'''
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         cursor = None
@@ -487,7 +500,9 @@ class BlueSky:
                   'sort': sort_order}
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         if author:
-            params['author'] = author
+            # Careful not to call normalize_handle_value with None, otherwise it
+            # would insert self.handle
+            params['author'] = self.normalize_handle_value(author)
         if date_limit:
             params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -545,9 +560,20 @@ class BlueSky:
 
     @staticmethod
     def at_uri_to_did_rkey(at_uri):
-        '''return the DID and rkey of the given at-uri'''
+        '''return the DID and rkey of the given at URI'''
         _, _, did, _, rkey = at_uri.split('/')
         return did, rkey
+
+    def at_url_to_did_rkey(self, at_url):
+        '''return the DID and rkey of the given at URL'''
+        _, _, _, _, handle, _, rkey = at_url.split('/')
+        return self.profile_did(handle), rkey
+
+    @staticmethod
+    def at_url_to_handle_rkey(at_url):
+        '''Return the handle and rkey of the given at URL'''
+        _, _, _, _, handle, _, rkey = at_url.split('/')
+        return handle, rkey
 
     @normalize_handle
     def follows(self, handle):

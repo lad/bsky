@@ -2,4 +2,5 @@
 max-line-length = 87
 
 per-file-ignores =
-    example_decorator_parsing.py:F401
+    example_command_parser.py:F401
+    bs.py:F401

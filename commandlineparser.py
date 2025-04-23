@@ -4,8 +4,12 @@
 import argparse
 import sys
 
+
 # pylint: disable=W0622 (redefined-builtin)
-# pylint: disable=R0903: (too-few-public-methods)
+# pylint: disable=R0903 (too-few-public-methods)
+# pylint: disable=R0902 (too-many-instance-attributes)
+# pylint: disable=R0913 (too-many-arguments)
+# pylint: disable=R0917 (too-many-positional-arguments)
 
 # Use regular class instead of dataclass because they can be constructed like a
 # regular class instantiation rather than having to wrap the args and keyword
@@ -23,12 +27,18 @@ class Argument:
 
 class Command:
     """Encapsulates the details of each command to be parsed from the command line."""
-    def __init__(self, name, commands=None, args=None, help=None):
+    def __init__(self, name, commands=None, args=None,
+                 mutually_exclusive_args=None, mutually_required=False,
+                 func_args=None, **kwargs):
         self.name = name
-        self.args = args or []
         self.commands = commands or []
-        self.help = help
+        self.args = args or []
+        self.mutually_exclusive_args = mutually_exclusive_args or []
+        self.mutually_required = mutually_required
+        self.func_args = func_args
         self.parent_name = None
+        # Typically the help message and other flags for add_parser()
+        self.kwargs = kwargs
 
 
 class CommandLineParser:
@@ -62,9 +72,14 @@ class CommandLineParser:
         # arguments to the command function.
         def add_command(cmd, sub_cmd_parser, parent_name):
             cmd.parent_name = parent_name
-            parser = sub_cmd_parser.add_parser(cmd.name, help=cmd.help)
+            parser = sub_cmd_parser.add_parser(cmd.name, **cmd.kwargs)
             for arg in cmd.args:
                 parser.add_argument(*arg.args, **arg.kwargs)
+            if cmd.mutually_exclusive_args:
+                group = parser.add_mutually_exclusive_group(
+                        required=cmd.mutually_required)
+                for muarg in cmd.mutually_exclusive_args:
+                    group.add_argument(*muarg.args, **muarg.kwargs)
 
             if cmd.commands:
                 sub_sub_cmd_parser = parser.add_subparsers(
@@ -72,10 +87,12 @@ class CommandLineParser:
                 for c in cmd.commands:
                     add_command(c, sub_sub_cmd_parser, cmd.name)
 
-            parser.set_defaults(cmd=cmd,
-                                func_args=lambda ns: [
-                                    getattr(ns, self._arg_name(arg.args[0]))
-                                    for arg in ns.cmd.args])
+            if not cmd.func_args:
+                cmd.func_args = lambda ns: [getattr(ns, self._arg_name(arg.args[0]))
+                                            for arg in ns.cmd.args] + \
+                                           [getattr(ns, self._arg_name(arg.args[0]))
+                                            for arg in ns.cmd.mutually_exclusive_args]
+            parser.set_defaults(cmd=cmd)
 
         for cmd in commands:
             add_command(cmd, main_sub_cmd_parser, 'main')
@@ -102,3 +119,12 @@ class CommandLineParser:
         """Parse command line arguments and run the resulting namespace created
            by argparse"""
         return self.main_parser.parse_args(args)
+
+    @staticmethod
+    def true_false(flag):
+        '''Check true/false argument string'''
+        if flag == 'true':
+            return True
+        if flag == 'false':
+            return False
+        return None
