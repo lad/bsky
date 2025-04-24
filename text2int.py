@@ -1,8 +1,8 @@
-'''Parse strings with textual representations of numbers into integers'''
+"""Parse strings with textual representations of numbers into integers"""
 
 
 def parse(text):
-    '''Parse the given string and return the integer equivalent'''
+    """Parse the given string and return the integer equivalent"""
     # Define a mapping of text numbers to integers
     number_map = {
         "zero": 0,
@@ -57,7 +57,7 @@ def parse(text):
 
 
 def test():
-    '''Example usage'''
+    """Example usage"""
     numbers = [
         "sixty seven",
         "one",
@@ -77,5 +77,5 @@ def test():
             print(e)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test()

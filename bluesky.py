@@ -1,4 +1,4 @@
-'''BlueSky class to interact with the Blue Sky API via atproto'''
+"""BlueSky class to interact with the Blue Sky API via atproto"""
 
 # pylint: disable=W0511
 
@@ -22,7 +22,7 @@ import dateparse
 
 
 def normalize_handle(func):
-    '''Decorator to normalize a handle argument'''
+    """Decorator to normalize a handle argument"""
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         # Get method signature and bind the given arguments to it
@@ -30,8 +30,8 @@ def normalize_handle(func):
         bound_args = sig.bind(self, *args, **kwargs)
 
         # Assume we have a 'handle' argument and replace with its normalized value
-        handle = bound_args.arguments['handle']
-        bound_args.arguments['handle'] = self.normalize_handle_value(handle)
+        handle = bound_args.arguments["handle"]
+        bound_args.arguments["handle"] = self.normalize_handle_value(handle)
 
         # Call the original wrapped method
         return func(*bound_args.args, **bound_args.kwargs)
@@ -39,8 +39,8 @@ def normalize_handle(func):
 
 
 class PostTypeMask:
-    '''An sort of enum class to describe types of posts. Uses int masks which
-       enums don't support'''
+    """An sort of enum class to describe types of posts. Uses int masks which
+       enums don't support"""
     ORIGINAL = 1
     REPOST = 2
     REPLY = 4
@@ -52,15 +52,15 @@ class PostTypeMask:
         self.value = value
 
     def original(self):
-        '''Indicates whether the requested types of posts include original posts'''
+        """Indicates whether the requested types of posts include original posts"""
         return self.value & self.ORIGINAL
 
     def repost(self):
-        '''Indicates whether the requested types of posts include reposts'''
+        """Indicates whether the requested types of posts include reposts"""
         return self.value & self.REPOST
 
     def reply(self):
-        '''Indicates whether the requested types of posts include replies'''
+        """Indicates whether the requested types of posts include replies"""
         return self.value & self.REPLY
 
 
@@ -71,10 +71,10 @@ POST_TYPE_ALL = PostTypeMask(PostTypeMask.ALL)
 
 
 class BlueSky:
-    '''Command line client for Blue Sky'''
+    """Command line client for Blue Sky"""
     BLUESKY_MAX_IMAGE_SIZE = 976.56 * 1024
     FAILURE_LIMIT = 10
-    PROFILE_URL = 'https://bsky.app/profile/'
+    PROFILE_URL = "https://bsky.app/profile/"
 
     def __init__(self, handle, password):
         self.handle = handle
@@ -92,7 +92,7 @@ class BlueSky:
         return self._client
 
     def get_likes(self, date_limit_str, count_limit=None, get_date=False):
-        '''A generator to yield posts that the given user handle has liked'''
+        """A generator to yield posts that the given user handle has liked"""
         params = {
                 "actor": self.handle,
                 "limit": 100,
@@ -103,7 +103,7 @@ class BlueSky:
         count = 0
 
         while num_failures < self.FAILURE_LIMIT:
-            params['cursor'] = cursor
+            params["cursor"] = cursor
             try:
                 rsp = self.client.app.bsky.feed.get_actor_likes(params=params)
                 if not rsp.feed:
@@ -120,19 +120,19 @@ class BlueSky:
                     if date_limit:
                         dt = dateutil.parser.isoparse(like.created_at)
                         if dt < date_limit:
-                            self.logger.info('Date limit reached')
+                            self.logger.info("Date limit reached")
                             return []
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
-                            self.logger.info('Count limit reached')
+                            self.logger.info("Count limit reached")
                             return []
 
                     yield like
 
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                 else:
                     break
@@ -146,12 +146,12 @@ class BlueSky:
 
     @normalize_handle
     def get_mutuals(self, handle, flag):
-        '''A generator to yield entries for users that the given user follows
+        """A generator to yield entries for users that the given user follows
            and who are also followers of the given user, if flag == both.
            If flag == follows-not-followers yield entries of users that the user
            follows who don't follow back.
            If flag = followers-not-follows yield entries of users that follow
-           this user that this user does not follow back'''
+           this user that this user does not follow back"""
 
         # hmm, I suppose this could be kind of heavyweight
         dfollows = {entry.handle: entry for entry in self.follows(handle)}
@@ -160,24 +160,24 @@ class BlueSky:
         follows = set(dfollows.keys())
         followers = set(dfollowers.keys())
 
-        if flag == 'both':
+        if flag == "both":
             for mutual in follows & followers:
                 yield dfollows[mutual]
-        elif flag == 'follows-not-followers':
+        elif flag == "follows-not-followers":
             for mutual in follows - followers:
                 yield dfollows[mutual]
-        elif flag == 'followers-not-follows':
+        elif flag == "followers-not-follows":
             for mutual in followers - follows:
                 yield dfollowers[mutual]
         else:
-            raise ValueError(f"Invalid flag: '{flag}'. Expected 'both', "
-                             f"'follows-not-followers', or 'followers-not-follows'.")
+            raise ValueError(f"Invalid flag: `{flag}`. Expected `both`, "
+                             f"`follows-not-followers`, or `followers-not-follows`.")
 
     # TODO: Finish test_get_reposters()
     @normalize_handle
     def get_reposters(self, handle, date_limit_str=None):
-        '''A generator to yield people that have reposts posts for the given user
-           handle'''
+        """A generator to yield people that have reposts posts for the given user
+           handle"""
         repost_info = {}
 
         for post in self.get_posts(handle, date_limit_str=date_limit_str,
@@ -186,22 +186,22 @@ class BlueSky:
                 reposters = self.client.get_reposted_by(post.uri)
                 for profile in reposters.reposted_by:
                     if profile.handle in repost_info:
-                        repost_info[profile.handle]['count'] += 1
-                        repost_info[profile.handle]['posts'].append(post)
+                        repost_info[profile.handle]["count"] += 1
+                        repost_info[profile.handle]["posts"].append(post)
                     else:
                         repost_info[profile.handle] = {
-                                'count': 1,
-                                'profile': profile,
-                                'posts': [post]
+                                "count": 1,
+                                "profile": profile,
+                                "posts": [post]
                         }
 
         sorted_items = sorted(repost_info.values(),
-                              key=lambda item: item['count'], reverse=True)
+                              key=lambda item: item["count"], reverse=True)
 
         yield from sorted_items
 
     def post_text(self, text):
-        '''Post the given text and return the resulting post uri'''
+        """Post the given text and return the resulting post uri"""
         num_failures = 0
         while num_failures < self.FAILURE_LIMIT:
             try:
@@ -214,7 +214,7 @@ class BlueSky:
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def post_rich(self, text, mentions):
-        '''Post the given text with the given user handle mentions'''
+        """Post the given text with the given user handle mentions"""
         details = self.build_post(text, mentions)
 
         num_failures = 0
@@ -229,7 +229,7 @@ class BlueSky:
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def build_post(self, text, mentions):
-        '''Insert the given text and user mentions into an atproto TextBuilder'''
+        """Insert the given text and user mentions into an atproto TextBuilder"""
         tb = atproto.client_utils.TextBuilder()
         tb.text(f"{text}\n")
         for handle in mentions:
@@ -239,7 +239,7 @@ class BlueSky:
 
     # TODO: implement retries
     def post_image(self, text, filename, alt):
-        '''Post the given image with the given text and given alt-text'''
+        """Post the given image with the given text and given alt-text"""
         img_data = self._get_image_data(filename)
 
         # Add image aspect ratio to prevent default 1:1 aspect ratio
@@ -247,15 +247,15 @@ class BlueSky:
         aspect_ratio = atproto.models.AppBskyEmbedDefs.AspectRatio(
                             height=100, width=100)
 
-        self.logger.info('Posting image...')
+        self.logger.info("Posting image...")
         rsp = self.client.send_image(text=text,
                                      image=img_data,
-                                     image_alt=alt or '',
+                                     image_alt=alt or "",
                                      image_aspect_ratio=aspect_ratio)
         return rsp.uri
 
     def delete_post(self, uri):
-        '''Delete the post at the given uri'''
+        """Delete the post at the given uri"""
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -272,7 +272,7 @@ class BlueSky:
 
     @normalize_handle
     def get_profile(self, handle):
-        '''Return the profile of the given user handle'''
+        """Return the profile of the given user handle"""
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
@@ -289,11 +289,11 @@ class BlueSky:
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_post(self, uri=None, did=None, rkey=None, likes=False):
-        '''Get details of the post at the given uri'''
+        """Get details of the post at the given uri"""
         if uri:
             did, rkey = self.at_uri_to_did_rkey(uri)
         elif not (did and rkey):
-            raise ValueError("Must supply either 'uri' or both 'did' and 'rkey'")
+            raise ValueError("Must supply either `uri` or both `did` and `rkey`")
 
         num_failures = 0
 
@@ -307,7 +307,7 @@ class BlueSky:
                     break
             except atproto_client.exceptions.BadRequestError as ex:
                 # Could they not just return a 404 like everyone else. FFS.
-                if ex.response.content.error == 'RecordNotFound':
+                if ex.response.content.error == "RecordNotFound":
                     rsp = None
                     break
             except atproto_core.exceptions.AtProtocolError as ex:
@@ -332,12 +332,12 @@ class BlueSky:
 
     @staticmethod
     def _filter_post(filter_post_type, view, handle):
-        '''Ignore this post if it's not one of the following:
+        """Ignore this post if it's not one of the following:
             - requested type is repost and the author handle is not ours
             - requested type is reply and there is a reply structure and the
                 author's handle is our own
             - requested type is original and there is no reply structure and
-                the author's handle is our own'''
+                the author's handle is our own"""
         return not ((filter_post_type.repost() and
                      view.post.author.handle != handle) or
                     (filter_post_type.reply() and
@@ -357,7 +357,7 @@ class BlueSky:
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
                   post_type_filter=POST_TYPE_ORIGINAL):
-        '''A generator to return an entry for posts for the given user handle'''
+        """A generator to return an entry for posts for the given user handle"""
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         cursor = None
         count = 0
@@ -369,7 +369,7 @@ class BlueSky:
                 for view in feed.feed:
                     if date_limit and self._date_limit_reached(view, handle,
                                                                date_limit):
-                        self.logger.info('Date limit reached')
+                        self.logger.info("Date limit reached")
                         return None
 
                     if self._filter_post(post_type_filter, view, handle):
@@ -379,7 +379,7 @@ class BlueSky:
                     if count_limit:
                         count += 1
                         if count > count_limit:
-                            self.logger.info('Count limit reached')
+                            self.logger.info("Count limit reached")
                             return None
 
                     view.post.reply = view.reply
@@ -388,7 +388,7 @@ class BlueSky:
                     yield view.post
 
                 if feed.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = feed.cursor
                 else:
                     return None
@@ -399,7 +399,7 @@ class BlueSky:
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def get_post_likes(self, uri):
-        '''A generator to yield details of the likes for a given post uri'''
+        """A generator to yield details of the likes for a given post uri"""
         cursor = None
         num_failures = 0
 
@@ -409,7 +409,7 @@ class BlueSky:
                 yield from rsp.likes
 
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                 else:
                     return None
@@ -421,7 +421,7 @@ class BlueSky:
 
     # TODO: implement retries
     def get_unread_notifications_count(self):
-        '''Return a count of the unread notifications for the authenticated user'''
+        """Return a count of the unread notifications for the authenticated user"""
         num_failures = 0
         while num_failures < BlueSky.FAILURE_LIMIT:
             try:
@@ -435,7 +435,7 @@ class BlueSky:
     # TODO: Finish get_notifications tests
     def get_notifications(self, date_limit_str=None, count_limit=None,
                           mark_read=False, get_all=False):
-        '''A generator to yield notifications for the authenticated handle'''
+        """A generator to yield notifications for the authenticated handle"""
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         count = 0
         num_failures = 0
@@ -444,7 +444,7 @@ class BlueSky:
         while num_failures < BlueSky.FAILURE_LIMIT:
             try:
                 rsp = self.client.app.bsky.notification.list_notifications(
-                        params={'cursor': cursor})
+                        params={"cursor": cursor})
                 for notif in rsp.notifications:
                     if date_limit:
                         dt = dateutil.parser.isoparse(notif.record.created_at)
@@ -452,13 +452,13 @@ class BlueSky:
                             # Once we get to notifications older than the date
                             # limit, we assume the rest of the notifications are
                             # older, we're done
-                            self.logger.info('Date limit reached')
+                            self.logger.info("Date limit reached")
                             return None
 
                     if count_limit:
                         count += 1
                         if count > count_limit:
-                            self.logger.info('Count limit reached')
+                            self.logger.info("Count limit reached")
                             return None
 
                     # If we're not returning all (already read) notificiations then
@@ -466,9 +466,9 @@ class BlueSky:
                     if not get_all and notif.is_read:
                         return None
 
-                    if notif.reason == 'reply':
+                    if notif.reason == "reply":
                         post = self.get_post(notif.record.reply.parent.uri)
-                    elif notif.reason in ['like', 'repost']:
+                    elif notif.reason in ["like", "repost"]:
                         post = self.get_post(notif.reason_subject)
                     else:
                         post = None
@@ -476,7 +476,7 @@ class BlueSky:
                     yield notif, post
 
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                     continue
 
@@ -489,22 +489,22 @@ class BlueSky:
                     # TODO should we consider implementing mark_read when date or
                     # count limit is reached above?
                     seen_at = self.client.get_current_time_iso()
-                    self.client.app.bsky.notification.update_seen({'seen_at': seen_at})
+                    self.client.app.bsky.notification.update_seen({"seen_at": seen_at})
 
         raise IOError(f"Giving up, more than {self.FAILURE_LIMIT} failures")
 
     def search(self, term, author, date_limit_str, sort_order, is_follow, is_follower):
-        '''A generator to yield posts that match the given search terms'''
-        params = {'q': term,
-                  'limit': 100,
-                  'sort': sort_order}
+        """A generator to yield posts that match the given search terms"""
+        params = {"q": term,
+                  "limit": 100,
+                  "sort": sort_order}
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         if author:
             # Careful not to call normalize_handle_value with None, otherwise it
             # would insert self.handle
-            params['author'] = self.normalize_handle_value(author)
+            params["author"] = self.normalize_handle_value(author)
         if date_limit:
-            params['since'] = date_limit.strftime('%Y-%m-%dT%H:%M:%SZ')
+            params["since"] = date_limit.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         if is_follow is None:
             follows = []
@@ -519,7 +519,7 @@ class BlueSky:
         num_failures = 0
 
         while num_failures < self.FAILURE_LIMIT:
-            params['cursor'] = cursor
+            params["cursor"] = cursor
             try:
                 rsp = self.client.app.bsky.feed.search_posts(params=params)
                 for post in rsp.posts:
@@ -534,7 +534,7 @@ class BlueSky:
                     yield (post, follows, followers)
 
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                 else:
                     return None
@@ -546,7 +546,7 @@ class BlueSky:
 
     @normalize_handle
     def profile_did(self, handle):
-        '''Return the DID for a given user handle'''
+        """Return the DID for a given user handle"""
         profile = self.get_profile(handle)
         if profile:
             return profile.did
@@ -554,31 +554,31 @@ class BlueSky:
 
     @staticmethod
     def at_uri_to_http_url(at_uri):
-        '''return the http address of the given at-uri'''
+        """return the http address of the given at-uri"""
         did, rkey = BlueSky.at_uri_to_did_rkey(at_uri)
         return f"https://bsky.app/profile/{did}/post/{rkey}"
 
     @staticmethod
     def at_uri_to_did_rkey(at_uri):
-        '''return the DID and rkey of the given at URI'''
-        _, _, did, _, rkey = at_uri.split('/')
+        """return the DID and rkey of the given at URI"""
+        _, _, did, _, rkey = at_uri.split("/")
         return did, rkey
 
     def at_url_to_did_rkey(self, at_url):
-        '''return the DID and rkey of the given at URL'''
-        _, _, _, _, handle, _, rkey = at_url.split('/')
+        """return the DID and rkey of the given at URL"""
+        _, _, _, _, handle, _, rkey = at_url.split("/")
         return self.profile_did(handle), rkey
 
     @staticmethod
     def at_url_to_handle_rkey(at_url):
-        '''Return the handle and rkey of the given at URL'''
-        _, _, _, _, handle, _, rkey = at_url.split('/')
+        """Return the handle and rkey of the given at URL"""
+        _, _, _, _, handle, _, rkey = at_url.split("/")
         return handle, rkey
 
     @normalize_handle
     def follows(self, handle):
-        '''A generator to return an entry for each user that the given user
-           handle follows'''
+        """A generator to return an entry for each user that the given user
+           handle follows"""
         cursor = None
         num_failures = 0
 
@@ -587,7 +587,7 @@ class BlueSky:
                 rsp = self.client.get_follows(handle, cursor=cursor)
                 yield from rsp.follows
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                 else:
                     return []
@@ -599,8 +599,8 @@ class BlueSky:
 
     @normalize_handle
     def followers(self, handle):
-        '''A generator to return an entry for each user that follows the given user
-           handle'''
+        """A generator to return an entry for each user that follows the given user
+           handle"""
         cursor = None
         num_failures = 0
 
@@ -609,7 +609,7 @@ class BlueSky:
                 rsp = self.client.get_followers(handle, cursor=cursor)
                 yield from rsp.followers
                 if rsp.cursor:
-                    self.logger.info('Cursor found, retrieving next page...')
+                    self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
                 else:
                     return []
@@ -634,29 +634,29 @@ class BlueSky:
 
     def _print_at_protocol_error(self, ex):
         self.logger.error(type(ex))
-        if 'response' in dir(ex):
-            if 'status_code' in dir(ex.response):
+        if "response" in dir(ex):
+            if "status_code" in dir(ex.response):
                 self.logger.error("Status: %s", str(ex.response.status_code))
-            if 'content' in dir(ex.response):
-                if 'message' in dir(ex.response.content):
+            if "content" in dir(ex.response):
+                if "message" in dir(ex.response.content):
                     self.logger.error("Message: %s", ex.response.content.message)
 
     def normalize_handle_value(self, handle):
-        '''Normalize the handle value. This assumes its wrapping a method from the
-        BlueSky class'''
+        """Normalize the handle value. This assumes its wrapping a method from the
+        BlueSky class"""
         hand = handle or self.handle
-        if hand.startswith('did'):
+        if hand.startswith("did"):
             return hand
         if hand.startswith(self.PROFILE_URL):
-            hand = hand.split('/')[-1]
-        elif '.' not in hand:
-            hand = hand + '.bsky.social'
+            hand = hand.split("/")[-1]
+        elif "." not in hand:
+            hand = hand + ".bsky.social"
 
-        return hand.lstrip('@')
+        return hand.lstrip("@")
 
     def _get_image_data(self, filename):
-        '''Read the image at the given filename and downsize it to under the
-           max size permissible for blue sky'''
+        """Read the image at the given filename and downsize it to under the
+           max size permissible for blue sky"""
         scaler = 0.75
         count = 0
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'''BlueSky command line interface: Like command class'''
+"""BlueSky command line interface: Like command class"""
 
 # pylint: disable=R0913 (too-many-arguments)
 # pylint: disable=R0917 (too-many-positional-arguments)
@@ -8,10 +8,10 @@ from blueskycmd import BaseCmd
 
 
 class Like(BaseCmd):
-    '''BlueSky command line interface: Like command class'''
+    """BlueSky command line interface: Like command class"""
 
     def get(self, uri, count, no_details, full):
-        '''Print the like details of the given post'''
+        """Print the like details of the given post"""
         likes = list(self.bs.get_post_likes(uri))
         if count:
             print(f"Count: {len(likes)}")
@@ -20,8 +20,8 @@ class Like(BaseCmd):
                 self.print_like_entry(like, full)
 
     def gets(self, handle, date_limit_str, count_limit, post_type_filter, full):
-        '''Print the like details of the posts found by the request details
-           like: date_limit, count, reply vs. original post'''
+        """Print the like details of the posts found by the request details
+           like: date_limit, count, reply vs. original post"""
         count = 0
         # Don't pass count limit to .get_posts() use count_limit to count the
         # number of liked posts. This could potentially retrieve many posts if
@@ -43,7 +43,7 @@ class Like(BaseCmd):
                 break
 
     def most(self, handle, date_limit_str, count_limit, post_type_filter, full):
-        '''Print details of who most likes the posts found by the given parameters'''
+        """Print details of who most likes the posts found by the given parameters"""
         likes = {}
         for post in self.bs.get_posts(handle, date_limit_str,
                                       count_limit=count_limit,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''Decorators and class for parsing command lines'''
+"""Decorators and class for parsing command lines"""
 import argparse
 import sys
 
@@ -56,7 +56,7 @@ class CommandLineParser:
             main_parser.add_argument(*arg.args, **arg.kwargs)
 
         # Create a sub parser to attach the commands parsers
-        main_sub_cmd_parser = main_parser.add_subparsers(title='Commands')
+        main_sub_cmd_parser = main_parser.add_subparsers(title="Commands")
 
         # commands is a list of Command objects.
         # For each one:
@@ -95,13 +95,13 @@ class CommandLineParser:
             parser.set_defaults(cmd=cmd)
 
         for cmd in commands:
-            add_command(cmd, main_sub_cmd_parser, 'main')
+            add_command(cmd, main_sub_cmd_parser, "main")
 
         # wrap ArgumentParser.parse_args() to make it act like one sub command
         # is required. No required keyword for sub-parsers until py 3.7
         def parse(args):
             ns = main_parser.original_parse_args(args)
-            if not hasattr(ns, 'cmd'):
+            if not hasattr(ns, "cmd"):
                 main_parser.print_help()
                 sys.exit(1)
             return ns
@@ -113,7 +113,7 @@ class CommandLineParser:
     @staticmethod
     def _arg_name(arg):
         """Convert the argument name to a valid python attribute name"""
-        return arg.strip('-').replace('-', '_')
+        return arg.strip("-").replace("-", "_")
 
     def parse_args(self, args):
         """Parse command line arguments and run the resulting namespace created
@@ -122,9 +122,9 @@ class CommandLineParser:
 
     @staticmethod
     def true_false(flag):
-        '''Check true/false argument string'''
-        if flag == 'true':
+        """Check true/false argument string"""
+        if flag == "true":
             return True
-        if flag == 'false':
+        if flag == "false":
             return False
         return None
