@@ -2,7 +2,7 @@
 
 '''BlueSky command line interface'''
 
-# pylint can't see that we use several claseses that around found dynamically using
+# pylint can't see that we use several claseses that are found dynamically using
 # globals(). See the run() method of BlueSkyCommandLine
 # pylint: disable=W0611 (unused-import)
 

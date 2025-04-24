@@ -2,33 +2,51 @@ A simple command line client for BlueSky.
 
 Written in python using the atproto sdk
 
-
-usage: bs.py [-h] [--verbose] [--debug] [--config CONFIG]
-             {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,rich,search} ...
+usage: bs.py [-h] [--critical] [--error] [--warning] [--info] [--debug]
+             [--verbose] [--config CONFIG]
+             {user,post,like,msg} ...
 
 options:
   -h, --help            show this help message and exit
-  --verbose, -v
-  --debug, -d
+  --critical            Set log level to CRITICAL
+  --error, -e           Set log level to ERROR
+  --warning, -w         Set log level to WARNING [default]
+  --info, -i            Set log level to INFO
+  --debug, -d           Set log level to DEBUG
+  --verbose, -v         Synonym for --debug
   --config, -c CONFIG   config file or $BSCONFIG or $PWD/.config
 
-Sub Commands:
-  {delete,del,did,followers,follows,has_unread_notifications,unread,likes,mutuals,notifications,not,notif,post,postimage,pi,posts,profile,reposters,rich,search}
-    delete (del)        delete BlueSky post
+Commands: user, post, like, msg
+
+user commands:
+  {did,profile,follows,followers,mutuals,reposters,likes}
     did                 show a user's did
-    followers           show the given user's followers
+    profile             Show more details of each user
     follows             show who a user follows
-    has_unread_notifications (unread)
-                        Show true/false for unread notifications
-    likes               show likes for authenticated user
+    followers           show the given user's followers
     mutuals             show who follows the given user
-    notifications (not, notif)
-                        show notifications for the authenticated user
-    post                post text to BlueSky
-    postimage (pi)      post image to BlueSky
-    posts               show BlueSky posts
-    profile             show user's profile
     reposters           show repost users
-    rich                post text to BlueSky
+    likes               show likes for authenticated user
+
+post commands:
+  {get,gets,put,putr,puti,delete,del,search,likes}
+    get                 Display details of the given post
+    gets                show BlueSky posts
+    put                 post text to BlueSky
+    putr                post rich text to BlueSky
+    puti                post image to BlueSky
+    delete (del)        delete BlueSky post
     search              show posts for a given search string (Lucene search
                         strings supported)
+    likes               Show like details of the post
+
+like commands:
+  {get,gets,most}
+    get            Show like details of a particular post
+    gets           Show like details of the found posts
+    most           Find users with the most likes for the given posts
+
+msg commands:
+  {unread,gets}
+    unread       show number of unread messages
+    gets         Show notifications
