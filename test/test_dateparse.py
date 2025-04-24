@@ -280,27 +280,3 @@ class TestDateParse:
         assert fifty_weeks < one_week
         assert fifty_weeks < two_weeks
         assert fifty_weeks < ten_weeks
-
-        '''
-        if date_tomorrow <= date_today:
-            raise ValueError(
-                    f"FAIL: tomorrow {date_tomorrow} is <= today {date_today}")
-
-        date_last_day = parse('last day')
-        if date_last_day >= date_today:
-            raise ValueError(
-                    f"FAIL: Last day {date_last_day} >= today {date_today}")
-
-        date_last_two_days = parse('last two days')
-        if date_last_two_days >= date_today:
-            raise ValueError(
-                    f"FAIL: Last two days {date_last_two_days} >= today {date_today}")
-
-        date_last_four_days = parse('last four days')
-        date_ten_minutes_ago = parse('ten minutes ago')
-        if date_last_four_days >= date_ten_minutes_ago:
-            raise ValueError(f"FAIL: Last four days {date_last_four_days} >= "
-                            f"ten minutes ago {date_ten_minutes_ago}")
-
-        print('PASS')
-        '''

@@ -1,7 +1,5 @@
 '''BlueSky tests'''
 
-from unittest.mock import patch, MagicMock
-
 import atproto_core
 import pytest
 
