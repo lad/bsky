@@ -38,7 +38,7 @@ def normalize_handle(func):
     return wrapper
 
 
-class PostTypeMask:
+class PostType:
     """An sort of enum class to describe types of posts. Uses int masks which
        enums don't support"""
     ORIGINAL = 1
@@ -48,7 +48,7 @@ class PostTypeMask:
 
     def __init__(self, value):
         if value < self.ORIGINAL or value > self.ALL:
-            raise ValueError(f"Invalid PostTypeMask value {value}")
+            raise ValueError(f"Invalid PostType value {value}")
         self.value = value
 
     def original(self):
@@ -64,10 +64,10 @@ class PostTypeMask:
         return self.value & self.REPLY
 
 
-POST_TYPE_ORIGINAL = PostTypeMask(PostTypeMask.ORIGINAL)
-POST_TYPE_REPOST = PostTypeMask(PostTypeMask.REPOST)
-POST_TYPE_REPLY = PostTypeMask(PostTypeMask.REPLY)
-POST_TYPE_ALL = PostTypeMask(PostTypeMask.ALL)
+ORIGINAL_POST = PostType(PostType.ORIGINAL)
+REPOST_POST = PostType(PostType.REPOST)
+REPLY_POST = PostType(PostType.REPLY)
+ALL_POST = PostType(PostType.ALL)
 
 
 class BlueSky:
@@ -181,7 +181,7 @@ class BlueSky:
         repost_info = {}
 
         for post in self.get_posts(handle, date_limit_str=date_limit_str,
-                                   post_type_filter=POST_TYPE_ORIGINAL):
+                                   post_filter=ORIGINAL_POST):
             if post.repost_count:
                 reposters = self.client.get_reposted_by(post.uri)
                 for profile in reposters.reposted_by:
@@ -356,7 +356,7 @@ class BlueSky:
 
     @normalize_handle
     def get_posts(self, handle=None, date_limit_str=None, count_limit=None,
-                  post_type_filter=POST_TYPE_ORIGINAL):
+                  post_filter=ORIGINAL_POST):
         """A generator to return an entry for posts for the given user handle"""
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         cursor = None
@@ -372,7 +372,7 @@ class BlueSky:
                         self.logger.info("Date limit reached")
                         return None
 
-                    if self._filter_post(post_type_filter, view, handle):
+                    if self._filter_post(post_filter, view, handle):
                         continue
 
                     # Apply count check after filter checks above.

@@ -26,12 +26,12 @@ class Post(BaseCmd):
 
         self.print_post_entry(post)
 
-    def gets(self, handle, date_limit_str, count_limit, post_type_filter):
+    def gets(self, handle, date_limit_str, count_limit, post_filter):
         """Print the posts by the given user handle limited by the request details
            like: date_limit, count, reply vs. original post"""
         for post in self.bs.get_posts(handle, date_limit_str,
                                       count_limit=count_limit,
-                                      post_type_filter=post_type_filter):
+                                      post_filter=post_filter):
             self.print_post_entry(post)
 
     def put(self, text, show_uri):

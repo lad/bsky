@@ -19,7 +19,7 @@ class Like(BaseCmd):
             for like in likes:
                 self.print_like_entry(like, full)
 
-    def gets(self, handle, date_limit_str, count_limit, post_type_filter, full):
+    def gets(self, handle, date_limit_str, count_limit, post_filter, full):
         """Print the like details of the posts found by the request details
            like: date_limit, count, reply vs. original post"""
         count = 0
@@ -31,7 +31,7 @@ class Like(BaseCmd):
         for post in self.bs.get_posts(handle,
                                       date_limit_str=date_limit_str,
                                       count_limit=None,
-                                      post_type_filter=post_type_filter):
+                                      post_filter=post_filter):
             if post.like_count:
                 count += 1
                 for like in self.bs.get_post_likes(post.uri):
@@ -42,12 +42,12 @@ class Like(BaseCmd):
             if count_limit and count >= count_limit:
                 break
 
-    def most(self, handle, date_limit_str, count_limit, post_type_filter, full):
+    def most(self, handle, date_limit_str, count_limit, post_filter, full):
         """Print details of who most likes the posts found by the given parameters"""
         likes = {}
         for post in self.bs.get_posts(handle, date_limit_str,
                                       count_limit=count_limit,
-                                      post_type_filter=post_type_filter):
+                                      post_filter=post_filter):
             for like in self.bs.get_post_likes(post.uri):
                 if like.actor.did in likes:
                     count, profile = likes[like.actor.did]
