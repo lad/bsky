@@ -77,7 +77,7 @@ class User(BaseCmd):
     def print_like(self, like, short):
         """Print details of the given like structure"""
         if short:
-            self.print_profile_name(like.post.author)
+            print(self.profile_name(like.post.author))
             print(f"Post Link: {self.bs.at_uri_to_http_url(like.post.uri)}")
             text = like.post.record.text.replace("\n", " ")
 
@@ -86,8 +86,8 @@ class User(BaseCmd):
             else:
                 print(f"{text[:77]}...")
         else:
-            self.print_profile_name(like.post.author)
-            self.print_profile_link(like.post.author)
+            print(self.profile_name(like.post.author))
+            print(self.profile_link(like.post.author))
             # author_profile = self.profile(handle)
             # followers = author_profile.followers_count
             # f"{like.post.author.display_name} ({followers} followers)\n"

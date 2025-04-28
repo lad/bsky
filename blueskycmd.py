@@ -18,9 +18,9 @@ class BaseCmd:
 
     def print_profile(self, profile, label="Profile", full=False):
         """Print details of the given profile structure"""
-        self.print_profile_name(profile, label)
+        print(self.profile_name(profile, label))
         if full:
-            self.print_profile_link(profile)
+            print(self.profile_link(profile))
             print(f"DID: {profile.did}")
             print(f"Created at: {dateparse.humanise_date_string(profile.created_at)}")
             if profile.description:
@@ -29,23 +29,23 @@ class BaseCmd:
                       sep="")
 
     @staticmethod
-    def print_profile_name(author, label="Profile"):
+    def profile_name(author, label="Profile"):
         """Print the display name of the given profile"""
         if author.display_name:
             display_name = f"{author.display_name} "
         else:
             display_name = ""
-        print(f"{label}: {display_name}@{author.handle}")
+        return f"{label}: {display_name}@{author.handle}"
 
     @staticmethod
-    def print_profile_link(author):
+    def profile_link(author):
         """Print the http link to the profile of the given user"""
-        print(f"Profile Link: https://bsky.app/profile/{author.handle}")
+        return f"Profile Link: https://bsky.app/profile/{author.handle}"
 
     def print_post_entry(self, post, follows=None, followers=None):
         """Print details of the given post structure"""
-        self.print_profile_name(post.author)
-        self.print_profile_link(post.author)
+        print(self.profile_name(post.author))
+        print(self.profile_link(post.author))
         if follows:
             is_follow = post.author.handle in follows
             print(f"Follows: {is_follow}")

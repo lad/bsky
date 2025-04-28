@@ -33,8 +33,8 @@ class Msg(BaseCmd):
 
     def print_notification_entry(self, notif, post):
         """Print details of the given notification structure"""
-        self.print_profile_name(notif.author)
-        self.print_profile_link(notif.author)
+        print(self.profile_name(notif.author))
+        print(self.profile_link(notif.author))
         print(f"Reason: {notif.reason}")
         print(f"Date: {dateparse.humanise_date_string(notif.indexed_at)}")
         if post:

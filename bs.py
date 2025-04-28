@@ -99,7 +99,7 @@ class BlueSkyCommandLine:
                     [Argument("--since", "-s", action="store",
                               help="Date limit (e.g. today/yesterday/3 days ago"),
                      Argument("--count", "-c", action="store", type=int,
-                              help="Max number of notifications to show"),
+                              help="Max number of posts to check likes for"),
                      Argument("--date", "-d", action="store_true",
                               help="Show date of each like (more costly)"),
                      Argument("--short",  action="store_true",
