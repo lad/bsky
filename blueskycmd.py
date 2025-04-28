@@ -13,7 +13,8 @@ class BaseCmd:
 
     def run(self):
         """Run the command for the given command details passed to constructor"""
-        getattr(self, self.ns.cmd.name)(*self.ns.cmd.func_args(self.ns))
+        method_name = self.ns.cmd.name.replace("-", '_')
+        getattr(self, method_name)(*self.ns.cmd.func_args(self.ns))
 
     def print_profile(self, profile, label="Profile", full=False):
         """Print details of the given profile structure"""
