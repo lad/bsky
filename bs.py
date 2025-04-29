@@ -293,10 +293,12 @@ class BlueSkyCommandLine:
         self.logger = logging.getLogger(__name__)
 
         # Read config based on command line args, $BSCONFIG or default config file
-        config = (self.ns.config or
-                  os.environ.get("BSCONFIG") or
-                  BlueSkyCommandLine.CONFIG_PATH_DEFAULT)
-        self.handle, self._password = self.get_config(config)
+        config_path = (self.ns.config or
+                       os.environ.get("BSCONFIG") or
+                       BlueSkyCommandLine.CONFIG_PATH_DEFAULT)
+        self.config = self.get_config(config_path)
+        self.handle, self._password = (self.config.get("auth", "user"),
+                                       self.config.get("auth", "password"))
 
         # Create the bluesky client that interacts with the BlueSky API
         self.bs = bluesky.BlueSky(self.handle, self._password)
@@ -317,7 +319,7 @@ class BlueSkyCommandLine:
             self.main_parser.parse_args([self.ns.cmd.name, "-h"])
             sys.exit(1)
 
-        cls(self.bs, self.ns).run()
+        cls(self.bs, self.ns, self.config).run()
 
     @staticmethod
     def get_config(path):
@@ -326,7 +328,7 @@ class BlueSkyCommandLine:
         if not os.path.exists(path):
             raise FileNotFoundError(f"Config file not found: {path}")
         cp.read(path)
-        return cp.get("auth", "user"), cp.get("auth", "password")
+        return cp
 
 
 def main():

@@ -7,9 +7,10 @@ import dateparse
 class BaseCmd:
     """Base command for class which implement command line functions"""
 
-    def __init__(self, bs, ns):
+    def __init__(self, bs, ns, config):
         self.bs = bs
         self.ns = ns
+        self.config = config
 
     def run(self):
         """Run the command for the given command details passed to constructor"""
