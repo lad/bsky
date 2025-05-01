@@ -307,11 +307,21 @@ class BlueSkyCommandLine:
         """Run the function for the command line given to the constructor"""
 
         # self.ns is populated when we call CommandLineParser.parse_args() in the
-        # constructor. self.ns contains the name of the parent command and the name
-        # of the command chosen. The parent command is the name of the class to
-        # instantiate and the command name is the name of the method to run on
-        # that object. It also contains 'func_args' lambda that assembles the
-        # function arguments from the parsed command line.
+        # constructor. self.ns contains the name of the top level command and
+        # the name of the sub-command chosen. For example "user profile". "user" is
+        # the top level command and "profile" is the sub-command. The top level
+        # command is used to find the class to instantiate (see cmd_name_to_class_name
+        # below). The sub-command is used as the method name to invoke on that
+        # instantiated object. For "user profile" it would be the "UserCmd" class with
+        # its "profile" method. All command classes are derived from BaseCmd which
+        # conains the run() method invoked below. run() finds the correct method to
+        # handle the chosen command based on the sub-command name given on the
+        # command line.
+        #
+        # self.ns also contains a "func_args" lambda that assembles the function
+        # arguments from the parsed command line. It is used in BaseCmd.run() to
+        # supply the command line arguments to the method that will handle the
+        # sub-command.
 
         try:
             cls = globals()[self.cmd_name_to_class_name(self.ns.cmd.parent_name)]
@@ -323,6 +333,8 @@ class BlueSkyCommandLine:
 
     @staticmethod
     def cmd_name_to_class_name(cmd_name):
+        """Convert the command name to a class name that handles that command.
+           For example: user -> UserCmd, post -> PostCmd"""
         return f"{cmd_name.capitalize()}Cmd"
 
     @staticmethod
