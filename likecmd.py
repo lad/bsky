@@ -4,10 +4,10 @@
 # pylint: disable=R0913 (too-many-arguments)
 # pylint: disable=R0917 (too-many-positional-arguments)
 
-from blueskycmd import BaseCmd
+from basecmd import BaseCmd
 
 
-class Like(BaseCmd):
+class LikeCmd(BaseCmd):
     """BlueSky command line interface: Like command class"""
 
     def get(self, uri, count, no_details, full):

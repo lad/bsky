@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """BlueSky command line interface: Msg command class"""
 
-from blueskycmd import BaseCmd
+from basecmd import BaseCmd
 import dateparse
 
 
-class Msg(BaseCmd):
+class MsgCmd(BaseCmd):
     """BlueSky command line interface: Msg command class"""
 
     def unread(self):

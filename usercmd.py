@@ -3,10 +3,10 @@
 
 import wcwidth
 import dateparse
-from blueskycmd import BaseCmd
+from basecmd import BaseCmd
 
 
-class User(BaseCmd):
+class UserCmd(BaseCmd):
     """BlueSky command line interface: User command class"""
 
     def did(self, handle):

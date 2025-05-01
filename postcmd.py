@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """BlueSky command line interface: Post command class"""
 
-from blueskycmd import BaseCmd
+from basecmd import BaseCmd
 
 
-class Post(BaseCmd):
+class PostCmd(BaseCmd):
     """BlueSky command line interface: Post command class"""
 
     def get(self, uri, url):

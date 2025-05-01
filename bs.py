@@ -14,10 +14,10 @@ from dataclasses import dataclass
 
 import bluesky
 from commandlineparser import Command, Argument, CommandLineParser
-from blueskyuser import User
-from blueskypost import Post
-from blueskylike import Like
-from blueskymsg import Msg
+from usercmd import UserCmd
+from postcmd import PostCmd
+from likecmd import LikeCmd
+from msgcmd import MsgCmd
 import shared
 
 
@@ -314,12 +314,16 @@ class BlueSkyCommandLine:
         # function arguments from the parsed command line.
 
         try:
-            cls = globals()[self.ns.cmd.parent_name.capitalize()]
+            cls = globals()[self.cmd_name_to_class_name(self.ns.cmd.parent_name)]
         except KeyError:
             self.main_parser.parse_args([self.ns.cmd.name, "-h"])
             sys.exit(1)
 
         cls(self.bs, self.ns, self.config).run()
+
+    @staticmethod
+    def cmd_name_to_class_name(cmd_name):
+        return f"{cmd_name.capitalize()}Cmd"
 
     @staticmethod
     def get_config(path):
