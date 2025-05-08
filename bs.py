@@ -34,7 +34,8 @@ class SearchCommandRequest:
 
 class BlueSkyCommandLine:
     """A command line client for the BlueSky API"""
-    CONFIG_PATH_DEFAULT = os.path.join(os.getcwd(), ".config")
+    CONFIG_PATH_FILENAME = ".bluesky.config"
+    CONFIG_PATH_DEFAULT = os.path.join(os.path.expanduser('~'), CONFIG_PATH_FILENAME)
     # Global aruments for the application as a whole
     ARGUMENTS = [Argument("--critical", action="store_const",
                           dest="log_level", const=logging.CRITICAL,
@@ -56,7 +57,8 @@ class BlueSkyCommandLine:
                           dest="log_level", const=logging.DEBUG,
                           help="Synonym for --debug"),
                  Argument("--config", "-c", dest="config", action="store",
-                          help="Config file or $BSCONFIG or $PWD/.config")]
+                          help=f"Config file or $BSCONFIG or "
+                               f"$HOME/{CONFIG_PATH_FILENAME}")]
     # User sub-commands
     USER = [Command("did", None,
                     [Argument("handle", nargs="?", help="User's handle")],
