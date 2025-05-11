@@ -1,6 +1,6 @@
 """BlueSky class to interact with the Blue Sky API via atproto"""
 
-# pylint: disable=W0511
+# pylint: disable=W0511 (fixme)
 
 import functools
 import inspect
@@ -22,7 +22,7 @@ import dateparse
 
 
 def normalize_handle(func):
-    """Decorator to normalize a handle argument"""
+    """Decorator to normalize a handle argument, see normalize_handle_value()"""
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         # Get method signature and bind the given arguments to it
@@ -93,10 +93,8 @@ class BlueSky:
 
     def get_likes(self, date_limit_str, count_limit=None, get_date=False):
         """A generator to yield posts that the given user handle has liked"""
-        params = {
-                "actor": self.handle,
-                "limit": 100,
-                }
+        params = {"actor": self.handle}
+        params['limit'] = count_limit if count_limit else 100
         cursor = None
         date_limit = dateparse.parse(date_limit_str) if date_limit_str else None
         num_failures = 0
@@ -105,11 +103,14 @@ class BlueSky:
         while num_failures < self.FAILURE_LIMIT:
             params["cursor"] = cursor
             try:
+                # Get a batch of like data
                 rsp = self.client.app.bsky.feed.get_actor_likes(params=params)
                 if not rsp.feed:
                     break
 
+                # Iterate through the like data
                 for like in rsp.feed:
+                    # Retrieve extra data info if needed
                     if date_limit or get_date:
                         like_rsp = self.client.app.bsky.feed.like.get(
                                       *self.at_uri_to_did_rkey(like.post.viewer.like))
@@ -117,20 +118,25 @@ class BlueSky:
                     else:
                         like.created_at = None
 
+                    # Apply data limit if needed
                     if date_limit:
                         dt = dateutil.parser.isoparse(like.created_at)
                         if dt < date_limit:
                             self.logger.info("Date limit reached")
                             return []
 
+                    # Apply count limit if needed
                     if count_limit:
                         count += 1
                         if count > count_limit:
                             self.logger.info("Count limit reached")
                             return []
 
+                    # Return the like data
                     yield like
 
+                # If we have a cursor there is more data available, otherwise
+                # we're at the end of the like data, so we're done.
                 if rsp.cursor:
                     self.logger.info("Cursor found, retrieving next page...")
                     cursor = rsp.cursor
@@ -642,8 +648,14 @@ class BlueSky:
                     self.logger.error("Message: %s", ex.response.content.message)
 
     def normalize_handle_value(self, handle):
-        """Normalize the handle value. This assumes its wrapping a method from the
-        BlueSky class"""
+        """Normalize the handle value:
+           - Use self.handle if `handle` argument is None
+           - If the handle is a did use as is
+           - If the handle is a profile URL, parse and return the
+             <username>.bsky.social portion
+           - If the handle doesn't end in .bsky.social append that.
+
+           Yes this assumes profiles are on bsky.social URLs"""
         hand = handle or self.handle
         if hand.startswith("did"):
             return hand
